@@ -1,0 +1,196 @@
+{
+  "id": "frc-eval-dataset",
+  "name": "FRC RAG Evaluation Dataset",
+  "description": "Comprehensive test cases for evaluating FRC-specific RAG retrieval and generation quality. Covers mechanisms, drivetrains, sensors, autonomous, and multi-modal queries.",
+  "version": "1.0.0",
+  "createdAt": "2024-12-13T00:00:00.000Z",
+  "updatedAt": "2024-12-13T00:00:00.000Z",
+  "metadata": {
+    "domain": "FIRST Robotics Competition",
+    "source": "FRC technical documentation and build blogs",
+    "author": "RAG Eval Bench"
+  },
+  "testCases": [
+    {
+      "id": "intake-note-2024",
+      "query": "Design a versatile intake mechanism for the 2024 CRESCENDO season that can handle Note game pieces. The intake must be able to pick up Notes from the ground, accept handoffs from human players at the Source, and work reliably in autonomous mode.",
+      "category": "mechanisms",
+      "difficulty": "hard",
+      "tags": ["intake", "2024", "crescendo", "note"],
+      "groundTruth": {
+        "expectedKeywords": ["intake", "note", "roller", "belt", "motor", "neo", "ground", "source", "autonomous", "sensor", "beam break", "foam", "wheel", "polycarbonate", "compliant"],
+        "relevantChunks": ["intake mechanism design", "ground pickup system", "note handling"],
+        "expectedImages": ["intake", "roller", "ground pickup"]
+      }
+    },
+    {
+      "id": "drivetrain-speed-calc",
+      "query": "How do you design a drivetrain for a 120lb robot that can achieve 15 ft/s top speed using maximum 4 CIM motors?",
+      "category": "drivetrain",
+      "difficulty": "medium",
+      "tags": ["drivetrain", "speed", "motors", "calculations"],
+      "groundTruth": {
+        "expectedKeywords": ["drivetrain", "CIM", "motor", "gear", "ratio", "speed", "weight", "wheels", "gearbox", "transmission", "fps", "ft/s", "torque", "reduction"],
+        "relevantChunks": ["drivetrain design calculations", "gear ratio", "CIM motor specifications"],
+        "expectedImages": ["drivetrain", "gearbox", "wheels"]
+      }
+    },
+    {
+      "id": "sensors-autonomous",
+      "query": "What sensors are commonly used in FRC robots for autonomous navigation?",
+      "category": "sensors",
+      "difficulty": "easy",
+      "tags": ["sensors", "autonomous", "navigation"],
+      "groundTruth": {
+        "expectedKeywords": ["sensor", "autonomous", "navigation", "gyro", "encoder", "IMU", "camera", "vision", "ultrasonic", "lidar", "apriltag", "odometry", "navx", "pigeon"],
+        "relevantChunks": ["autonomous navigation sensors", "gyroscope", "encoder feedback"],
+        "expectedImages": ["sensor", "camera", "gyro"]
+      }
+    },
+    {
+      "id": "swerve-drive-design",
+      "query": "Explain how to build a swerve drive system for FRC. What are the key components and considerations?",
+      "category": "drivetrain",
+      "difficulty": "hard",
+      "tags": ["swerve", "drivetrain", "advanced"],
+      "groundTruth": {
+        "expectedKeywords": ["swerve", "module", "steering", "drive", "motor", "encoder", "absolute", "cancoder", "falcon", "neo", "kraken", "azimuth", "wheel", "ratio"],
+        "relevantChunks": ["swerve drive", "module design", "steering control"],
+        "expectedImages": ["swerve", "module", "drivetrain"]
+      }
+    },
+    {
+      "id": "shooter-mechanisms",
+      "query": "What are the best practices for designing a flywheel shooter for game pieces?",
+      "category": "mechanisms",
+      "difficulty": "medium",
+      "tags": ["shooter", "flywheel", "mechanisms"],
+      "groundTruth": {
+        "expectedKeywords": ["shooter", "flywheel", "wheel", "motor", "velocity", "rpm", "spin", "compression", "hood", "angle", "trajectory", "backspin"],
+        "relevantChunks": ["flywheel shooter", "shooting mechanism", "velocity control"],
+        "expectedImages": ["shooter", "flywheel", "hood"]
+      }
+    },
+    {
+      "id": "elevator-design",
+      "query": "How do you design a continuous rigging elevator for an FRC robot?",
+      "category": "mechanisms",
+      "difficulty": "medium",
+      "tags": ["elevator", "lift", "rigging"],
+      "groundTruth": {
+        "expectedKeywords": ["elevator", "rigging", "continuous", "cascade", "stage", "motor", "rope", "belt", "pulley", "carriage", "bearing", "linear"],
+        "relevantChunks": ["elevator design", "continuous rigging", "lift mechanism"],
+        "expectedImages": ["elevator", "rigging", "lift"]
+      }
+    },
+    {
+      "id": "vision-apriltag",
+      "query": "How do FRC teams use AprilTags for robot localization and targeting?",
+      "category": "vision",
+      "difficulty": "medium",
+      "tags": ["vision", "apriltag", "localization"],
+      "groundTruth": {
+        "expectedKeywords": ["apriltag", "vision", "localization", "pose", "camera", "photonvision", "limelight", "field", "coordinate", "transform", "odometry"],
+        "relevantChunks": ["apriltag localization", "vision processing", "pose estimation"],
+        "expectedImages": ["apriltag", "camera", "limelight"]
+      }
+    },
+    {
+      "id": "pid-control",
+      "query": "Explain PID control for FRC robots. How do you tune PID constants?",
+      "category": "programming",
+      "difficulty": "medium",
+      "tags": ["pid", "control", "tuning"],
+      "groundTruth": {
+        "expectedKeywords": ["PID", "proportional", "integral", "derivative", "tuning", "kP", "kI", "kD", "feedback", "setpoint", "error", "oscillation"],
+        "relevantChunks": ["PID control", "tuning constants", "feedback control"],
+        "expectedImages": []
+      }
+    },
+    {
+      "id": "climber-mechanism",
+      "query": "What types of climbing mechanisms have been successful in FRC competitions?",
+      "category": "mechanisms",
+      "difficulty": "easy",
+      "tags": ["climber", "endgame", "mechanisms"],
+      "groundTruth": {
+        "expectedKeywords": ["climb", "hook", "winch", "telescope", "arm", "bar", "rung", "motor", "rope", "chain", "pneumatic"],
+        "relevantChunks": ["climbing mechanism", "endgame", "hook design"],
+        "expectedImages": ["climber", "hook", "arm"]
+      }
+    },
+    {
+      "id": "pneumatics-frc",
+      "query": "How do you set up and use pneumatics in FRC robots?",
+      "category": "pneumatics",
+      "difficulty": "easy",
+      "tags": ["pneumatics", "air", "cylinders"],
+      "groundTruth": {
+        "expectedKeywords": ["pneumatic", "compressor", "cylinder", "solenoid", "valve", "tank", "pressure", "regulator", "psi", "bore", "stroke"],
+        "relevantChunks": ["pneumatic system", "compressor setup", "cylinder actuation"],
+        "expectedImages": ["pneumatic", "cylinder", "compressor"]
+      }
+    },
+    {
+      "id": "battery-power",
+      "query": "What are the best practices for battery and power management in FRC?",
+      "category": "electrical",
+      "difficulty": "easy",
+      "tags": ["battery", "power", "electrical"],
+      "groundTruth": {
+        "expectedKeywords": ["battery", "power", "voltage", "current", "breaker", "pdh", "pdp", "fuse", "brownout", "charging", "wiring"],
+        "relevantChunks": ["power management", "battery care", "electrical system"],
+        "expectedImages": ["battery", "pdp", "wiring"]
+      }
+    },
+    {
+      "id": "path-planning",
+      "query": "How do FRC teams implement path planning and trajectory following for autonomous?",
+      "category": "programming",
+      "difficulty": "hard",
+      "tags": ["pathplanning", "trajectory", "autonomous"],
+      "groundTruth": {
+        "expectedKeywords": ["path", "trajectory", "pathplanner", "pathweaver", "spline", "waypoint", "velocity", "acceleration", "ramsete", "holonomic"],
+        "relevantChunks": ["path planning", "trajectory generation", "autonomous following"],
+        "expectedImages": ["path", "trajectory"]
+      }
+    },
+    {
+      "id": "arm-control",
+      "query": "How do you control a multi-jointed arm mechanism on an FRC robot?",
+      "category": "mechanisms",
+      "difficulty": "hard",
+      "tags": ["arm", "control", "kinematics"],
+      "groundTruth": {
+        "expectedKeywords": ["arm", "joint", "pivot", "motor", "encoder", "feedforward", "gravity", "position", "angle", "kinematics", "motion profile"],
+        "relevantChunks": ["arm control", "joint mechanism", "position control"],
+        "expectedImages": ["arm", "joint", "pivot"]
+      }
+    },
+    {
+      "id": "weight-reduction",
+      "query": "What strategies do FRC teams use to reduce robot weight?",
+      "category": "design",
+      "difficulty": "easy",
+      "tags": ["weight", "design", "optimization"],
+      "groundTruth": {
+        "expectedKeywords": ["weight", "lightweight", "aluminum", "polycarbonate", "lexan", "pocket", "hole", "material", "titanium", "carbon fiber"],
+        "relevantChunks": ["weight reduction", "material selection", "design optimization"],
+        "expectedImages": ["pocketing", "lightweight"]
+      }
+    },
+    {
+      "id": "cad-best-practices",
+      "query": "What CAD best practices should FRC teams follow when designing their robot?",
+      "category": "design",
+      "difficulty": "medium",
+      "tags": ["cad", "design", "solidworks", "onshape"],
+      "groundTruth": {
+        "expectedKeywords": ["CAD", "design", "assembly", "part", "constraint", "mate", "dimension", "tolerance", "BOM", "drawing"],
+        "relevantChunks": ["CAD practices", "robot design", "assembly modeling"],
+        "expectedImages": ["cad", "design", "assembly"]
+      }
+    }
+  ]
+}
+

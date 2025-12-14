@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded square background matching the sidebar icon container -->
+  <rect x="8" y="8" width="48" height="48" rx="12" fill="url(#bgGrad)"/>
+  
+  <!-- FlaskConical icon - exact Lucide paths, centered in the box -->
+  <g transform="translate(16, 16) scale(1.33)" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Main flask body (exact Lucide path) -->
+    <path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2"/>
+    <!-- Liquid level line -->
+    <path d="M6.453 15h11.094"/>
+    <!-- Top line -->
+    <path d="M8.5 2h7"/>
+  </g>
+</svg>

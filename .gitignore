@@ -1,0 +1,79 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.output/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Bun
+bun.lockb
+
+# Results (keep structure, ignore data)
+results/*.json
+results/*.suggestion.json
+
+# Local settings (not committed)
+data/settings.local.json
+
+# Python cache (for direct mode)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# =============================================================================
+# User Modules (domain-specific, not committed)
+# =============================================================================
+# The modules/ directory contains user-defined modules that are specific
+# to particular domains or use cases. These are gitignored because:
+# - They may contain proprietary logic
+# - They are meant to be customized per deployment
+# - Example modules are provided in the docs/ directory
+modules/*
+!modules/README.md
+
+# =============================================================================
+# Domain-Specific Datasets
+# =============================================================================
+# The frc-specific dataset is kept as an example.
+# Users can create their own domain-specific datasets here.
+# datasets/frc-specific/  # Uncomment to exclude
+
+# =============================================================================
+# Python Virtual Environment
+# =============================================================================
+.venv-textdb/
+
+# Text DB data (generated)
+data/text_dbs/*.sqlite3
+data/text_dbs/*/

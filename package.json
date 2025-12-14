@@ -1,0 +1,36 @@
+{
+  "name": "rag-lab",
+  "version": "1.0.0",
+  "description": "RAG Lab - A research-grade evaluation and experimentation platform for Retrieval-Augmented Generation systems",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir=dist --target=bun",
+    "web:dev": "cd web && bun run dev",
+    "web:build": "cd web && bun run build",
+    "evaluate": "bun run src/cli/evaluate.ts",
+    "text:query": "bun run src/cli/text-query.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.11.0",
+    "openai": "^6.10.0",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.4",
+    "@types/node": "^25.0.1",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [
+    "rag",
+    "evaluation",
+    "benchmarking",
+    "retrieval-augmented-generation",
+    "llm",
+    "metrics"
+  ],
+  "author": "",
+  "license": "MIT"
+}
