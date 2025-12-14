@@ -464,9 +464,22 @@ export async function getDocumentProcessors(): Promise<{ documentProcessors: Mod
   return res.json();
 }
 
+/**
+ * Get image filter modules only
+ */
+export async function getImageFilters(): Promise<{ imageFilters: ModuleManifest[] }> {
+  const res = await fetch(`${API_BASE}/modules/image-filters`);
+  return res.json();
+}
+
 // ---------------------------------------------------------------------------
 // Image Embedding Studio API
 // ---------------------------------------------------------------------------
+
+export interface ImageFilterConfig {
+  enabled: boolean;
+  config?: Record<string, unknown>;
+}
 
 export interface ImageEmbeddingConfig {
   id: string;
@@ -485,6 +498,7 @@ export interface ImageEmbeddingConfig {
   captioningModel?: string;
   imageMinSize?: number;
   imageMaxSize?: number;
+  imageFilters?: Record<string, ImageFilterConfig>;
   metadata?: Record<string, unknown>;
 }
 

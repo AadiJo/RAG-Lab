@@ -12,7 +12,7 @@ import os
 import sys
 import time
 import glob
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import asdict
 
 try:
@@ -20,6 +20,17 @@ try:
 except ImportError:
     print("ERROR: PyMuPDF (fitz) not installed", file=sys.stderr)
     sys.exit(1)
+
+# Add project root to path for module imports
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+try:
+    from rag_bench.modules import get_registry
+except ImportError:
+    print("WARNING: Could not import module registry. Image filters will not be available.", file=sys.stderr)
+    get_registry = None
 
 # Note: This is a placeholder implementation
 # In a real implementation, you would:
@@ -85,15 +96,65 @@ def extract_context_around_image(
         pdf.close()
 
 
-def process_pdf(pdf_path: str, config: Dict[str, Any], output_dir: str) -> Dict[str, Any]:
+def get_image_filters(config: Dict[str, Any]) -> List[Any]:
+    """Get enabled image filters from the module registry."""
+    if get_registry is None:
+        return []
+    
+    try:
+        registry = get_registry()
+        image_filters_config = config.get("imageFilters", {})
+        return registry.get_enabled_image_filters(image_filters_config)
+    except Exception as e:
+        print(f"WARNING: Failed to load image filters: {e}", file=sys.stderr)
+        return []
+
+
+def should_exclude_image(
+    image: Dict[str, Any],
+    context: Dict[str, Any],
+    filters: List[Any]
+) -> Tuple[bool, Dict[str, Any]]:
+    """
+    Check if an image should be excluded using all enabled filters.
+    
+    Returns:
+        (should_exclude, exclusion_metadata)
+    """
+    if not filters:
+        return False, {}
+    
+    exclusion_metadata = {}
+    for filter_instance in filters:
+        try:
+            should_exclude, reason = filter_instance.should_exclude(image, context)
+            if should_exclude:
+                exclusion_metadata.update(reason)
+                exclusion_metadata["filter_id"] = filter_instance.MODULE_ID
+                return True, exclusion_metadata
+        except Exception as e:
+            print(f"WARNING: Image filter '{filter_instance.MODULE_ID}' failed: {e}", file=sys.stderr)
+    
+    return False, {}
+
+
+def process_pdf(
+    pdf_path: str,
+    config: Dict[str, Any],
+    output_dir: str,
+    filters: Optional[List[Any]] = None
+) -> Dict[str, Any]:
     """Process a single PDF and extract images with embeddings."""
     pdf = fitz.open(pdf_path)
     pdf_name = os.path.basename(pdf_path)
     images_processed = 0
+    images_excluded = 0
+    excluded_images = []
     
     try:
         for page_num in range(len(pdf)):
             page = pdf[page_num]
+            page_text = page.get_text()
             image_list = page.get_images()
             
             for img_idx, img in enumerate(image_list):
@@ -105,8 +166,25 @@ def process_pdf(pdf_path: str, config: Dict[str, Any], output_dir: str) -> Dict[
                 image_rects = page.get_image_rects(xref)
                 bbox = image_rects[0] if image_rects else None
                 
+                # Build image dict
+                image_dict = {
+                    "page": page_num + 1,
+                    "index": img_idx,
+                    "xref": xref,
+                    "width": base_image["width"],
+                    "height": base_image["height"],
+                    "format": base_image["ext"],
+                    "size_bytes": len(image_bytes),
+                    "bbox": {
+                        "x0": float(bbox.x0),
+                        "y0": float(bbox.y0),
+                        "x1": float(bbox.x1),
+                        "y1": float(bbox.y1),
+                    } if bbox else None,
+                }
+                
                 # Extract context
-                context = ""
+                context_text = ""
                 if bbox:
                     bbox_dict = {
                         "x0": float(bbox.x0),
@@ -114,9 +192,35 @@ def process_pdf(pdf_path: str, config: Dict[str, Any], output_dir: str) -> Dict[
                         "x1": float(bbox.x1),
                         "y1": float(bbox.y1),
                     }
-                    context = extract_context_around_image(
+                    context_text = extract_context_around_image(
                         pdf_path, page_num + 1, bbox_dict, config
                     )
+                
+                # Build context for filters
+                filter_context = {
+                    "pdf_path": pdf_path,
+                    "pdf_name": pdf_name,
+                    "page_text": page_text,
+                    "image_context": context_text,
+                    "config": config,
+                }
+                
+                # Apply image filters
+                if filters:
+                    should_exclude, exclusion_metadata = should_exclude_image(
+                        image_dict, filter_context, filters
+                    )
+                    if should_exclude:
+                        images_excluded += 1
+                        excluded_images.append({
+                            "page": page_num + 1,
+                            "index": img_idx,
+                            "width": image_dict["width"],
+                            "height": image_dict["height"],
+                            "exclusion_reason": exclusion_metadata.get("reason", "filtered"),
+                            "exclusion_metadata": exclusion_metadata,
+                        })
+                        continue
                 
                 # TODO: Generate embedding using the configured model
                 # For now, we'll just log the image info
@@ -125,10 +229,16 @@ def process_pdf(pdf_path: str, config: Dict[str, Any], output_dir: str) -> Dict[
     finally:
         pdf.close()
     
-    return {
+    result = {
         "pdf": pdf_name,
         "images_processed": images_processed,
+        "images_excluded": images_excluded,
     }
+    
+    if excluded_images:
+        result["excluded_images"] = excluded_images
+    
+    return result
 
 
 def main():
@@ -142,6 +252,12 @@ def main():
     # Load config
     config = load_config(args.config)
     
+    # Load image filters
+    filters = get_image_filters(config)
+    if filters:
+        filter_names = [f.MODULE_ID for f in filters]
+        print(f"INFO: Enabled image filters: {', '.join(filter_names)}", flush=True)
+    
     # Find all PDFs
     pdf_pattern = os.path.join(args.input_dir, "*.pdf")
     pdf_files = sorted(glob.glob(pdf_pattern))
@@ -152,14 +268,18 @@ def main():
     
     total = len(pdf_files)
     processed = 0
+    total_images_processed = 0
+    total_images_excluded = 0
     
     print(f"PROGRESS: pdf 0/{total} Starting...", flush=True)
     
     for pdf_path in pdf_files:
         pdf_name = os.path.basename(pdf_path)
         try:
-            result = process_pdf(pdf_path, config, args.output_dir)
+            result = process_pdf(pdf_path, config, args.output_dir, filters)
             processed += 1
+            total_images_processed += result.get("images_processed", 0)
+            total_images_excluded += result.get("images_excluded", 0)
             print(f"PROGRESS: pdf {processed}/{total} {pdf_name}", flush=True)
         except Exception as e:
             print(f"ERROR: Failed to process {pdf_name}: {e}", file=sys.stderr)
@@ -167,6 +287,9 @@ def main():
     
     print(f"PROGRESS: pdf {processed}/{total} Complete", flush=True)
     print(f"Processed {processed} PDFs", flush=True)
+    print(f"Total images processed: {total_images_processed}", flush=True)
+    if total_images_excluded > 0:
+        print(f"Total images excluded: {total_images_excluded}", flush=True)
 
 
 if __name__ == "__main__":

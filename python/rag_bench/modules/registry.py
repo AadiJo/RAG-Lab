@@ -35,6 +35,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 from .base import (
     BaseModule,
     DocumentProcessor,
+    ImageFilter,
     ModuleManifest,
     ModuleType,
     QueryPreprocessor,
@@ -94,6 +95,7 @@ class ModuleRegistry:
         self.filters: Dict[str, Type[RelevanceFilter]] = {}
         self.search_types: Dict[str, Type[SearchType]] = {}
         self.document_processors: Dict[str, Type[DocumentProcessor]] = {}
+        self.image_filters: Dict[str, Type[ImageFilter]] = {}
         
         # Unified module lookup
         self._modules: Dict[str, Type[BaseModule]] = {}
@@ -172,6 +174,18 @@ class ModuleRegistry:
         self.document_processors[cls.MODULE_ID] = cls
         self._modules[cls.MODULE_ID] = cls
     
+    def register_image_filter(self, cls: Type[ImageFilter]) -> None:
+        """
+        Register an image filter class.
+        
+        Args:
+            cls: The image filter class to register
+        """
+        if not cls.MODULE_ID:
+            raise ValueError(f"ImageFilter {cls.__name__} has no MODULE_ID")
+        self.image_filters[cls.MODULE_ID] = cls
+        self._modules[cls.MODULE_ID] = cls
+    
     def register(self, cls: Type[BaseModule]) -> None:
         """
         Register a module class (auto-detects type).
@@ -188,6 +202,8 @@ class ModuleRegistry:
             self.register_search_type(cls)  # type: ignore
         elif module_type == ModuleType.DOCUMENT_PROCESSOR:
             self.register_document_processor(cls)  # type: ignore
+        elif module_type == ModuleType.IMAGE_FILTER:
+            self.register_image_filter(cls)  # type: ignore
         else:
             raise ValueError(f"Unknown module type: {module_type}")
     
@@ -284,6 +300,9 @@ class ModuleRegistry:
         for cls in self.document_processors.values():
             modules.append(cls.get_manifest().to_dict())
         
+        for cls in self.image_filters.values():
+            modules.append(cls.get_manifest().to_dict())
+        
         return modules
     
     def list_document_processors(self) -> List[Dict[str, Any]]:
@@ -294,6 +313,45 @@ class ModuleRegistry:
             List of document processor manifests
         """
         return [cls.get_manifest().to_dict() for cls in self.document_processors.values()]
+    
+    def list_image_filters(self) -> List[Dict[str, Any]]:
+        """
+        List all registered image filters.
+        
+        Returns:
+            List of image filter manifests
+        """
+        return [cls.get_manifest().to_dict() for cls in self.image_filters.values()]
+    
+    def get_enabled_image_filters(
+        self,
+        module_config: Dict[str, Dict[str, Any]],
+    ) -> List[ImageFilter]:
+        """
+        Get instantiated image filters based on configuration.
+        
+        Args:
+            module_config: Dict mapping module IDs to their config
+        
+        Returns:
+            List of instantiated image filter objects
+        """
+        instances = []
+        
+        for module_id, cls in self.image_filters.items():
+            cfg = module_config.get(module_id, {})
+            enabled = cfg.get("enabled", cls.ENABLED_BY_DEFAULT)
+            if not enabled:
+                continue
+            
+            instance_config = cfg.get("config", {})
+            try:
+                instance = cls(instance_config)
+                instances.append(instance)
+            except Exception as e:
+                print(f"Warning: Failed to instantiate image filter '{module_id}': {e}")
+        
+        return instances
     
     def get_enabled_document_processors(
         self,

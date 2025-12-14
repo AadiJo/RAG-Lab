@@ -15,6 +15,7 @@ import {
   getFilters, 
   getSearchTypes,
   getDocumentProcessors,
+  getImageFilters,
   clearModuleCache,
 } from '../modules/manager';
 
@@ -110,6 +111,24 @@ moduleRoutes.get('/document-processors', async (c) => {
     return c.json({
       error: error instanceof Error ? error.message : 'Failed to get document processors',
       documentProcessors: [],
+    }, 500);
+  }
+});
+
+/**
+ * GET /api/modules/image-filters
+ * 
+ * List available image filter modules.
+ * These are used during image database building to exclude irrelevant images.
+ */
+moduleRoutes.get('/image-filters', async (c) => {
+  try {
+    const imageFilters = await getImageFilters();
+    return c.json({ imageFilters });
+  } catch (error) {
+    return c.json({
+      error: error instanceof Error ? error.message : 'Failed to get image filters',
+      imageFilters: [],
     }, 500);
   }
 });

@@ -24,6 +24,12 @@ async function ensureConfigsDir(): Promise<void> {
   }
 }
 
+// Image filter configuration
+export interface ImageFilterConfig {
+  enabled: boolean;
+  config?: Record<string, unknown>;
+}
+
 // Image embedding configuration schema
 export interface ImageEmbeddingConfig {
   id: string;
@@ -47,6 +53,8 @@ export interface ImageEmbeddingConfig {
   // Image processing
   imageMinSize?: number; // Minimum image size in pixels (width or height)
   imageMaxSize?: number; // Maximum image size in pixels
+  // Image filters
+  imageFilters?: Record<string, ImageFilterConfig>; // Map of filter module ID to config
   // Metadata
   metadata?: Record<string, unknown>;
 }
@@ -203,6 +211,9 @@ imageEmbeddingRoutes.post('/configs', async (c) => {
     if ((body as any).imageMaxSize !== undefined) {
       config.imageMaxSize = (body as any).imageMaxSize ? Number((body as any).imageMaxSize) : undefined;
     }
+    if ((body as any).imageFilters !== undefined) {
+      config.imageFilters = (body as any).imageFilters;
+    }
   } else {
     // Create new
     config = {
@@ -222,6 +233,7 @@ imageEmbeddingRoutes.post('/configs', async (c) => {
       captioningModel: (body as any).captioningModel,
       imageMinSize: (body as any).imageMinSize ? Number((body as any).imageMinSize) : undefined,
       imageMaxSize: (body as any).imageMaxSize ? Number((body as any).imageMaxSize) : undefined,
+      imageFilters: (body as any).imageFilters || {},
       metadata: (body as any).metadata || {},
     };
   }

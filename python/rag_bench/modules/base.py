@@ -68,6 +68,9 @@ class ModuleType(str, Enum):
     
     DOCUMENT_PROCESSOR = "document_processor"
     """Document processors transform documents during database ingestion."""
+    
+    IMAGE_FILTER = "image_filter"
+    """Image filters exclude images during database ingestion."""
 
 
 @dataclass
@@ -537,8 +540,88 @@ class DocumentProcessor(BaseModule):
         return processed, context
 
 
+class ImageFilter(BaseModule):
+    """
+    Base class for image filters.
+    
+    Image filters determine which images should be excluded during database
+    ingestion. They run when building an image embedding database and can
+    filter images based on:
+    
+    - Image size (width, height, area)
+    - Image content (logos, irrelevant images)
+    - Context analysis (surrounding text)
+    - Metadata (page number, position, etc.)
+    
+    Filters can be chained - each filter receives the output of the previous one.
+    If any filter excludes an image, it will not be included in the database.
+    
+    Example:
+        ```python
+        class LogoFilter(ImageFilter):
+            MODULE_ID = "logo-filter"
+            MODULE_NAME = "Logo Filter"
+            
+            def should_exclude(
+                self,
+                image: dict,
+                context: dict
+            ) -> tuple[bool, dict]:
+                # Check if image is a logo
+                is_logo = self._detect_logo(image)
+                reason = {"reason": "logo_detected"} if is_logo else {}
+                return is_logo, reason
+        ```
+    
+    Note: Image filters run at ingestion time, not query time.
+    Enable them before building your image database.
+    """
+    
+    @classmethod
+    def get_module_type(cls) -> ModuleType:
+        return ModuleType.IMAGE_FILTER
+    
+    @abstractmethod
+    def should_exclude(
+        self,
+        image: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> Tuple[bool, Dict[str, Any]]:
+        """
+        Determine if an image should be excluded from the database.
+        
+        Args:
+            image: Image dictionary containing:
+                - "page": Page number (1-indexed)
+                - "index": Image index on page
+                - "width": Image width in pixels
+                - "height": Image height in pixels
+                - "format": Image format (e.g., "png", "jpeg")
+                - "size_bytes": Image size in bytes
+                - "bbox": Bounding box dict with x0, y0, x1, y1
+                - "base64": Base64-encoded image data (if available)
+                - "xref": PDF xref number
+            context: Contextual information that can be used/modified:
+                - "pdf_path": Path to the PDF file
+                - "pdf_name": Name of the PDF file
+                - "page_text": Text content of the page (if available)
+                - "image_context": Surrounding text context (if available)
+                - "config": Build configuration
+                - Custom keys added by prior filters
+        
+        Returns:
+            Tuple of (should_exclude, reason_dict)
+            - should_exclude: True if the image should be excluded
+            - reason_dict: Dictionary with exclusion reason and metadata:
+                - "reason": Human-readable reason for exclusion
+                - Additional metadata about why it was excluded
+        """
+        pass
+
+
 # Type aliases for convenience
 PreprocessorType = Type[QueryPreprocessor]
 FilterType = Type[RelevanceFilter]
 SearchTypeType = Type[SearchType]
 DocumentProcessorType = Type[DocumentProcessor]
+ImageFilterType = Type[ImageFilter]

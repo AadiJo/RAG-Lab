@@ -25,8 +25,10 @@ import {
   startImageDbBuild,
   getImageDbBuild,
   browseTextDbDirectories,
+  getImageFilters,
   type ImageEmbeddingConfig,
   type PdfImage,
+  type ModuleManifest,
 } from '../lib/api';
 
 export default function ImageEmbeddingStudio() {
@@ -59,6 +61,8 @@ export default function ImageEmbeddingStudio() {
   } | null>(null);
   const [dirPickerLoading, setDirPickerLoading] = useState(false);
   const [dirPickerError, setDirPickerError] = useState<string | null>(null);
+  const [imageFilters, setImageFilters] = useState<ModuleManifest[]>([]);
+  const [excludedImages, setExcludedImages] = useState<Set<string>>(new Set());
 
   const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const RUNNING_BUILD_STORAGE_KEY = 'rag-lab.runningImageDbBuildId';
@@ -66,6 +70,7 @@ export default function ImageEmbeddingStudio() {
   useEffect(() => {
     loadConfigs();
     loadPdfs();
+    loadImageFilters();
     
     // Resume polling if a build is in progress
     const storedId = localStorage.getItem(RUNNING_BUILD_STORAGE_KEY);
@@ -98,6 +103,13 @@ export default function ImageEmbeddingStudio() {
       loadImages(pdfs[selectedPdfIndex].name);
     }
   }, [pdfs, selectedPdfIndex, pdfDir]);
+
+  useEffect(() => {
+    // Re-preview excluded images when config changes
+    if (images.length > 0 && currentConfig) {
+      previewExcludedImages(images);
+    }
+  }, [currentConfig?.imageFilters]);
 
   useEffect(() => {
     if (!buildJobId) return;
@@ -188,19 +200,68 @@ export default function ImageEmbeddingStudio() {
     }
   };
 
+  const loadImageFilters = async () => {
+    try {
+      const res = await getImageFilters();
+      setImageFilters(res.imageFilters || []);
+    } catch (err) {
+      console.error('Failed to load image filters:', err);
+      setImageFilters([]);
+    }
+  };
+
   const loadImages = async (filename: string) => {
     setLoadingImages(true);
     setSelectedImageIndex(null);
     setImageContexts({});
+    setExcludedImages(new Set());
     try {
       const res = await getPdfImages(filename, pdfDir);
       setImages(res.images);
+      // Preview excluded images based on current config
+      if (currentConfig && currentConfig.imageFilters) {
+        previewExcludedImages(res.images);
+      }
     } catch (err) {
       console.error('Failed to load images:', err);
       setImages([]);
     } finally {
       setLoadingImages(false);
     }
+  };
+
+  const previewExcludedImages = (imageList: PdfImage[]) => {
+    // Simple client-side preview based on basic heuristics
+    // Actual filtering happens server-side during build
+    const excluded = new Set<string>();
+    if (!currentConfig?.imageFilters) return;
+    
+    const enabledFilters = Object.entries(currentConfig.imageFilters).filter(
+      ([_, config]) => config.enabled
+    );
+    
+    if (enabledFilters.length === 0) return;
+    
+    // Basic preview: check for FRC filter and apply simple size checks
+    for (const img of imageList) {
+      const key = `${img.page}-${img.index}`;
+      
+      for (const [filterId, filterConfig] of enabledFilters) {
+        if (filterId === 'frc-image-filter') {
+          const config = filterConfig.config || {};
+          const minWidth = config.min_width || 100;
+          const minHeight = config.min_height || 100;
+          const minArea = config.min_area || 10000;
+          
+          if (img.width < minWidth || img.height < minHeight || (img.width * img.height) < minArea) {
+            excluded.add(key);
+            break;
+          }
+        }
+      }
+    }
+    
+    setExcludedImages(excluded);
   };
 
   const loadImageContext = async (image: PdfImage) => {
@@ -455,7 +516,14 @@ export default function ImageEmbeddingStudio() {
 
           {/* Images List */}
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-zinc-300">Images in PDF</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-zinc-300">Images in PDF</h3>
+              {excludedImages.size > 0 && (
+                <span className="text-xs text-zinc-500">
+                  {excludedImages.size} excluded
+                </span>
+              )}
+            </div>
             {loadingImages ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 size={24} className="animate-spin text-indigo-400" />
@@ -466,83 +534,141 @@ export default function ImageEmbeddingStudio() {
               </div>
             ) : (
               <div className="space-y-2 max-h-96 overflow-auto">
-                {images.map((img, idx) => {
-                  const key = `${img.page}-${img.index}`;
-                  const contextData = imageContexts[key];
-                  const isSelected = selectedImageIndex === idx;
-                  const hasBase64 = img.base64 && img.base64.length > 0;
-                  
-                  return (
-                    <div
-                      key={key}
-                      className={`p-3 rounded-lg border transition-colors cursor-pointer ${
-                        isSelected
-                          ? 'bg-indigo-500/20 border-indigo-500/50'
-                          : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
-                      }`}
-                      onClick={() => {
-                        setSelectedImageIndex(isSelected ? null : idx);
-                        if (!contextData && currentConfig) {
-                          loadImageContext(img);
-                        }
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        {hasBase64 ? (
-                          <img
-                            src={`data:image/${img.format};base64,${img.base64}`}
-                            alt={`Image ${idx + 1}`}
-                            className="w-20 h-20 rounded bg-zinc-800 object-contain flex-shrink-0 border border-zinc-700"
-                          />
-                        ) : (
-                          <div className="w-20 h-20 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0 border border-zinc-700">
-                            <ImageIcon size={24} className="text-zinc-500" />
+                {/* Included Images */}
+                {images
+                  .filter((img, idx) => {
+                    const key = `${img.page}-${img.index}`;
+                    return !excludedImages.has(key);
+                  })
+                  .map((img, idx) => {
+                    const originalIdx = images.indexOf(img);
+                    const key = `${img.page}-${img.index}`;
+                    const contextData = imageContexts[key];
+                    const isSelected = selectedImageIndex === originalIdx;
+                    const hasBase64 = img.base64 && img.base64.length > 0;
+                    
+                    return (
+                      <div
+                        key={key}
+                        className={`p-3 rounded-lg border transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-500/20 border-indigo-500/50'
+                            : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
+                        }`}
+                        onClick={() => {
+                          setSelectedImageIndex(isSelected ? null : originalIdx);
+                          if (!contextData && currentConfig) {
+                            loadImageContext(img);
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          {hasBase64 ? (
+                            <img
+                              src={`data:image/${img.format};base64,${img.base64}`}
+                              alt={`Image ${originalIdx + 1}`}
+                              className="w-20 h-20 rounded bg-zinc-800 object-contain flex-shrink-0 border border-zinc-700"
+                            />
+                          ) : (
+                            <div className="w-20 h-20 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0 border border-zinc-700">
+                              <ImageIcon size={24} className="text-zinc-500" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-zinc-200">
+                              Image {originalIdx + 1}
+                            </div>
+                            <div className="text-xs text-zinc-500 mt-1">
+                              Page {img.page} • {img.width}×{img.height}px • {img.format.toUpperCase()}
+                            </div>
+                            {img.bbox && (
+                              <div className="text-xs text-zinc-600 mt-1">
+                                Position: ({Math.round(img.bbox.x0)}, {Math.round(img.bbox.y0)}) - ({Math.round(img.bbox.x1)}, {Math.round(img.bbox.y1)})
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Context Preview */}
+                        {isSelected && currentConfig && (
+                          <div className="mt-3 pt-3 border-t border-zinc-700">
+                            <div className="text-xs font-medium text-zinc-400 mb-2">
+                              Context Preview ({currentConfig.contextSource})
+                            </div>
+                            {contextData?.loading ? (
+                              <div className="flex items-center gap-2 text-xs text-zinc-500">
+                                <Loader2 size={12} className="animate-spin" />
+                                Loading context...
+                              </div>
+                            ) : contextData?.context ? (
+                              <div className="text-xs text-zinc-400 bg-zinc-950 rounded p-2 max-h-32 overflow-auto border border-zinc-800">
+                                {contextData.context || '(No context available)'}
+                              </div>
+                            ) : currentConfig.includeContext ? (
+                              <div className="text-xs text-zinc-500 italic">
+                                Click to load context preview
+                              </div>
+                            ) : (
+                              <div className="text-xs text-zinc-500 italic">
+                                Context extraction disabled in config
+                              </div>
+                            )}
                           </div>
                         )}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-zinc-200">
-                            Image {idx + 1}
-                          </div>
-                          <div className="text-xs text-zinc-500 mt-1">
-                            Page {img.page} • {img.width}×{img.height}px • {img.format.toUpperCase()}
-                          </div>
-                          {img.bbox && (
-                            <div className="text-xs text-zinc-600 mt-1">
-                              Position: ({Math.round(img.bbox.x0)}, {Math.round(img.bbox.y0)}) - ({Math.round(img.bbox.x1)}, {Math.round(img.bbox.y1)})
-                            </div>
-                          )}
-                        </div>
                       </div>
-                      
-                      {/* Context Preview */}
-                      {isSelected && currentConfig && (
-                        <div className="mt-3 pt-3 border-t border-zinc-700">
-                          <div className="text-xs font-medium text-zinc-400 mb-2">
-                            Context Preview ({currentConfig.contextSource})
-                          </div>
-                          {contextData?.loading ? (
-                            <div className="flex items-center gap-2 text-xs text-zinc-500">
-                              <Loader2 size={12} className="animate-spin" />
-                              Loading context...
+                    );
+                  })}
+                
+                {/* Excluded Images Section */}
+                {excludedImages.size > 0 && (
+                  <div className="mt-4 pt-4 border-t border-zinc-800">
+                    <h4 className="text-xs font-medium text-zinc-400 mb-2 flex items-center gap-2">
+                      <AlertCircle size={14} />
+                      Excluded Images ({excludedImages.size})
+                    </h4>
+                    <div className="space-y-2 max-h-48 overflow-auto">
+                      {images
+                        .filter((img) => {
+                          const key = `${img.page}-${img.index}`;
+                          return excludedImages.has(key);
+                        })
+                        .map((img, idx) => {
+                          const originalIdx = images.indexOf(img);
+                          const key = `${img.page}-${img.index}`;
+                          const hasBase64 = img.base64 && img.base64.length > 0;
+                          
+                          return (
+                            <div
+                              key={key}
+                              className="p-3 rounded-lg border border-zinc-800 bg-zinc-950/50 opacity-60"
+                            >
+                              <div className="flex items-start gap-3">
+                                {hasBase64 ? (
+                                  <img
+                                    src={`data:image/${img.format};base64,${img.base64}`}
+                                    alt={`Image ${originalIdx + 1}`}
+                                    className="w-16 h-16 rounded bg-zinc-800 object-contain flex-shrink-0 border border-zinc-700"
+                                  />
+                                ) : (
+                                  <div className="w-16 h-16 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0 border border-zinc-700">
+                                    <ImageIcon size={20} className="text-zinc-600" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-medium text-zinc-400">
+                                    Image {originalIdx + 1} (Excluded)
+                                  </div>
+                                  <div className="text-xs text-zinc-600 mt-1">
+                                    Page {img.page} • {img.width}×{img.height}px
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                          ) : contextData?.context ? (
-                            <div className="text-xs text-zinc-400 bg-zinc-950 rounded p-2 max-h-32 overflow-auto border border-zinc-800">
-                              {contextData.context || '(No context available)'}
-                            </div>
-                          ) : currentConfig.includeContext ? (
-                            <div className="text-xs text-zinc-500 italic">
-                              Click to load context preview
-                            </div>
-                          ) : (
-                            <div className="text-xs text-zinc-500 italic">
-                              Context extraction disabled in config
-                            </div>
-                          )}
-                        </div>
-                      )}
+                          );
+                        })}
                     </div>
-                  );
-                })}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -688,6 +814,147 @@ export default function ImageEmbeddingStudio() {
                   />
                 </div>
               )}
+
+              {/* Image Filters Section */}
+              <div className="pt-4 border-t border-zinc-800">
+                <h3 className="text-sm font-semibold text-zinc-200 mb-3">Image Filters</h3>
+                <p className="text-xs text-zinc-500 mb-3">
+                  Configure filters to exclude irrelevant images (logos, small images, etc.) from the database.
+                </p>
+                {imageFilters.length === 0 ? (
+                  <div className="text-xs text-zinc-500 italic py-2">
+                    No image filters available. Add filter modules to the modules/ directory.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {imageFilters.map((filter) => {
+                      const filterConfig = currentConfig.imageFilters?.[filter.id] || { enabled: false, config: {} };
+                      const isEnabled = filterConfig.enabled;
+                      
+                      return (
+                        <div key={filter.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-3">
+                          <div className="flex items-center gap-3 mb-2">
+                            <input
+                              type="checkbox"
+                              checked={isEnabled}
+                              onChange={(e) => {
+                                const newFilters = {
+                                  ...(currentConfig.imageFilters || {}),
+                                  [filter.id]: {
+                                    ...filterConfig,
+                                    enabled: e.target.checked,
+                                  },
+                                };
+                                setCurrentConfig({
+                                  ...currentConfig,
+                                  imageFilters: newFilters,
+                                });
+                              }}
+                              className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-indigo-500 focus:ring-indigo-500/30"
+                            />
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-zinc-200">{filter.name}</div>
+                              <div className="text-xs text-zinc-500">{filter.description}</div>
+                            </div>
+                          </div>
+                          
+                          {isEnabled && filter.configSchema && filter.configSchema.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-zinc-800 space-y-2">
+                              {filter.configSchema.map((schemaItem) => {
+                                const value = filterConfig.config?.[schemaItem.key] ?? schemaItem.default;
+                                
+                                return (
+                                  <div key={schemaItem.key}>
+                                    <label className="text-xs text-zinc-400">{schemaItem.label}</label>
+                                    {schemaItem.type === 'boolean' ? (
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <input
+                                          type="checkbox"
+                                          checked={Boolean(value)}
+                                          onChange={(e) => {
+                                            const newFilters = {
+                                              ...(currentConfig.imageFilters || {}),
+                                              [filter.id]: {
+                                                ...filterConfig,
+                                                config: {
+                                                  ...(filterConfig.config || {}),
+                                                  [schemaItem.key]: e.target.checked,
+                                                },
+                                              },
+                                            };
+                                            setCurrentConfig({
+                                              ...currentConfig,
+                                              imageFilters: newFilters,
+                                            });
+                                          }}
+                                          className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-indigo-500 focus:ring-indigo-500/30"
+                                        />
+                                        <span className="text-xs text-zinc-500">{schemaItem.description}</span>
+                                      </div>
+                                    ) : schemaItem.type === 'number' ? (
+                                      <input
+                                        type="number"
+                                        value={value ?? ''}
+                                        onChange={(e) => {
+                                          const numValue = e.target.value ? Number(e.target.value) : undefined;
+                                          const newFilters = {
+                                            ...(currentConfig.imageFilters || {}),
+                                            [filter.id]: {
+                                              ...filterConfig,
+                                              config: {
+                                                ...(filterConfig.config || {}),
+                                                [schemaItem.key]: numValue,
+                                              },
+                                            },
+                                          };
+                                          setCurrentConfig({
+                                            ...currentConfig,
+                                            imageFilters: newFilters,
+                                          });
+                                        }}
+                                        className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                                        min={schemaItem.min}
+                                        max={schemaItem.max}
+                                        placeholder={schemaItem.default?.toString()}
+                                      />
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        value={value ?? ''}
+                                        onChange={(e) => {
+                                          const newFilters = {
+                                            ...(currentConfig.imageFilters || {}),
+                                            [filter.id]: {
+                                              ...filterConfig,
+                                              config: {
+                                                ...(filterConfig.config || {}),
+                                                [schemaItem.key]: e.target.value,
+                                              },
+                                            },
+                                          };
+                                          setCurrentConfig({
+                                            ...currentConfig,
+                                            imageFilters: newFilters,
+                                          });
+                                        }}
+                                        className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                                        placeholder={schemaItem.default?.toString()}
+                                      />
+                                    )}
+                                    {schemaItem.description && (
+                                      <div className="text-xs text-zinc-600 mt-0.5">{schemaItem.description}</div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center gap-4 pt-4 border-t border-zinc-800">
                 <button

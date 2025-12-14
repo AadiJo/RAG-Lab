@@ -30,6 +30,7 @@ from .base import (
     RelevanceFilter,
     SearchType,
     DocumentProcessor,
+    ImageFilter,
     ModuleConfig,
     ModuleManifest,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "RelevanceFilter",
     "SearchType",
     "DocumentProcessor",
+    "ImageFilter",
     "ModuleConfig",
     "ModuleManifest",
     # Registry
