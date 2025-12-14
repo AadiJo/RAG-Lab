@@ -62,7 +62,8 @@ export default function ImageEmbeddingStudio() {
   const [dirPickerLoading, setDirPickerLoading] = useState(false);
   const [dirPickerError, setDirPickerError] = useState<string | null>(null);
   const [imageFilters, setImageFilters] = useState<ModuleManifest[]>([]);
-  const [excludedImages, setExcludedImages] = useState<Set<string>>(new Set());
+  const [excludedImages, setExcludedImages] = useState<Map<string, { reason: string; metadata?: any }>>(new Map());
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const RUNNING_BUILD_STORAGE_KEY = 'rag-lab.runningImageDbBuildId';
@@ -233,14 +234,20 @@ export default function ImageEmbeddingStudio() {
   const previewExcludedImages = (imageList: PdfImage[]) => {
     // Simple client-side preview based on basic heuristics
     // Actual filtering happens server-side during build
-    const excluded = new Set<string>();
-    if (!currentConfig?.imageFilters) return;
+    const excluded = new Map<string, { reason: string; metadata?: any }>();
+    if (!currentConfig?.imageFilters) {
+      setExcludedImages(excluded);
+      return;
+    }
     
     const enabledFilters = Object.entries(currentConfig.imageFilters).filter(
       ([_, config]) => config.enabled
     );
     
-    if (enabledFilters.length === 0) return;
+    if (enabledFilters.length === 0) {
+      setExcludedImages(excluded);
+      return;
+    }
     
     // Basic preview: check for FRC filter and apply simple size checks
     for (const img of imageList) {
@@ -252,9 +259,46 @@ export default function ImageEmbeddingStudio() {
           const minWidth = config.min_width || 100;
           const minHeight = config.min_height || 100;
           const minArea = config.min_area || 10000;
+          const excludeSmall = config.exclude_small !== false;
+          const excludeLogos = config.exclude_logos !== false;
+          const requireContext = config.require_context !== false;
           
-          if (img.width < minWidth || img.height < minHeight || (img.width * img.height) < minArea) {
-            excluded.add(key);
+          const reasons: string[] = [];
+          const metadata: any = {};
+          
+          if (excludeSmall) {
+            if (img.width < minWidth) {
+              reasons.push(`Width too small (${img.width} < ${minWidth}px)`);
+              metadata.size_issue = 'width_too_small';
+            }
+            if (img.height < minHeight) {
+              reasons.push(`Height too small (${img.height} < ${minHeight}px)`);
+              metadata.size_issue = 'height_too_small';
+            }
+            if ((img.width * img.height) < minArea) {
+              reasons.push(`Area too small (${img.width * img.height} < ${minArea}px²)`);
+              metadata.size_issue = 'area_too_small';
+            }
+          }
+          
+          // Simple logo detection based on size and position
+          if (excludeLogos) {
+            const isSmall = img.width < 300 && img.height < 300;
+            const bbox = img.bbox;
+            if (bbox) {
+              const isInHeader = bbox.y0 < 100;
+              if (isSmall && isInHeader) {
+                reasons.push('Likely logo (small image in header)');
+                metadata.logo_detected = true;
+              }
+            }
+          }
+          
+          if (reasons.length > 0) {
+            excluded.set(key, {
+              reason: reasons.join('; '),
+              metadata: { ...metadata, filter_id: filterId },
+            });
             break;
           }
         }
@@ -302,8 +346,18 @@ export default function ImageEmbeddingStudio() {
       setCurrentConfig(saved.config);
       setSelectedConfigId(saved.config.id);
       await loadConfigs();
+      
+      // Show success notification
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+      
+      // Re-preview excluded images with new config
+      if (images.length > 0) {
+        previewExcludedImages(images);
+      }
     } catch (err) {
       console.error('Failed to save config:', err);
+      alert('Failed to save configuration. Please try again.');
     }
   };
 
@@ -429,9 +483,9 @@ export default function ImageEmbeddingStudio() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-16rem)]">
         {/* Left: PDF Browser */}
-        <div className="glass-panel rounded-2xl p-6 space-y-4">
+        <div className="glass-panel rounded-2xl p-6 flex flex-col space-y-4 min-h-0 overflow-hidden h-full">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-white flex items-center gap-2">
               <FileText size={20} />
@@ -515,28 +569,28 @@ export default function ImageEmbeddingStudio() {
           )}
 
           {/* Images List */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
+          <div className="space-y-2 flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-between flex-shrink-0">
               <h3 className="text-sm font-medium text-zinc-300">Images in PDF</h3>
               {excludedImages.size > 0 && (
-                <span className="text-xs text-zinc-500">
+                <span className="text-xs text-amber-400 font-medium">
                   {excludedImages.size} excluded
                 </span>
               )}
             </div>
             {loadingImages ? (
-              <div className="flex items-center justify-center py-8">
+              <div className="flex items-center justify-center py-8 flex-shrink-0">
                 <Loader2 size={24} className="animate-spin text-indigo-400" />
               </div>
             ) : images.length === 0 ? (
-              <div className="text-sm text-zinc-500 text-center py-8">
+              <div className="text-sm text-zinc-500 text-center py-8 flex-shrink-0">
                 No images found in this PDF
               </div>
             ) : (
-              <div className="space-y-2 max-h-96 overflow-auto">
+              <div className="space-y-2 flex-1 overflow-auto min-h-0">
                 {/* Included Images */}
                 {images
-                  .filter((img, idx) => {
+                  .filter((img) => {
                     const key = `${img.page}-${img.index}`;
                     return !excludedImages.has(key);
                   })
@@ -591,26 +645,57 @@ export default function ImageEmbeddingStudio() {
                         
                         {/* Context Preview */}
                         {isSelected && currentConfig && (
-                          <div className="mt-3 pt-3 border-t border-zinc-700">
-                            <div className="text-xs font-medium text-zinc-400 mb-2">
-                              Context Preview ({currentConfig.contextSource})
+                          <div className="mt-3 pt-3 border-t border-zinc-700 space-y-3">
+                            {/* Image Content Preview */}
+                            <div>
+                              <div className="text-xs font-medium text-zinc-400 mb-2">
+                                Image Content
+                              </div>
+                              {hasBase64 ? (
+                                <div className="bg-zinc-950 rounded p-2 border border-zinc-800">
+                                  <img
+                                    src={`data:image/${img.format};base64,${img.base64}`}
+                                    alt={`Image ${originalIdx + 1}`}
+                                    className="max-w-full max-h-48 rounded object-contain mx-auto"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="text-xs text-zinc-500 italic">
+                                  Image preview not available
+                                </div>
+                              )}
                             </div>
-                            {contextData?.loading ? (
-                              <div className="flex items-center gap-2 text-xs text-zinc-500">
-                                <Loader2 size={12} className="animate-spin" />
-                                Loading context...
+                            
+                            {/* Surrounding Context */}
+                            <div>
+                              <div className="text-xs font-medium text-zinc-400 mb-2">
+                                Surrounding Context ({currentConfig.contextSource})
                               </div>
-                            ) : contextData?.context ? (
-                              <div className="text-xs text-zinc-400 bg-zinc-950 rounded p-2 max-h-32 overflow-auto border border-zinc-800">
-                                {contextData.context || '(No context available)'}
-                              </div>
-                            ) : currentConfig.includeContext ? (
-                              <div className="text-xs text-zinc-500 italic">
-                                Click to load context preview
-                              </div>
-                            ) : (
-                              <div className="text-xs text-zinc-500 italic">
-                                Context extraction disabled in config
+                              {contextData?.loading ? (
+                                <div className="flex items-center gap-2 text-xs text-zinc-500">
+                                  <Loader2 size={12} className="animate-spin" />
+                                  Loading context...
+                                </div>
+                              ) : contextData?.context ? (
+                                <div className="text-xs text-zinc-400 bg-zinc-950 rounded p-2 max-h-32 overflow-auto border border-zinc-800">
+                                  {contextData.context || '(No context available)'}
+                                </div>
+                              ) : currentConfig.includeContext ? (
+                                <div className="text-xs text-zinc-500 italic">
+                                  Click to load context preview
+                                </div>
+                              ) : (
+                                <div className="text-xs text-zinc-500 italic">
+                                  Context extraction disabled in config
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* OCR/Captioning Info */}
+                            {(currentConfig.enableOCR || currentConfig.enableCaptioning) && (
+                              <div className="text-xs text-zinc-600 italic">
+                                {currentConfig.enableOCR && 'OCR enabled • '}
+                                {currentConfig.enableCaptioning && 'Captioning enabled'}
                               </div>
                             )}
                           </div>
@@ -621,46 +706,57 @@ export default function ImageEmbeddingStudio() {
                 
                 {/* Excluded Images Section */}
                 {excludedImages.size > 0 && (
-                  <div className="mt-4 pt-4 border-t border-zinc-800">
-                    <h4 className="text-xs font-medium text-zinc-400 mb-2 flex items-center gap-2">
+                  <div className="mt-4 pt-4 border-t border-amber-500/30">
+                    <h4 className="text-xs font-semibold text-amber-400 mb-3 flex items-center gap-2">
                       <AlertCircle size={14} />
                       Excluded Images ({excludedImages.size})
                     </h4>
-                    <div className="space-y-2 max-h-48 overflow-auto">
+                    <div className="space-y-2 max-h-64 overflow-auto">
                       {images
                         .filter((img) => {
                           const key = `${img.page}-${img.index}`;
                           return excludedImages.has(key);
                         })
-                        .map((img, idx) => {
+                        .map((img) => {
                           const originalIdx = images.indexOf(img);
                           const key = `${img.page}-${img.index}`;
+                          const exclusionInfo = excludedImages.get(key);
                           const hasBase64 = img.base64 && img.base64.length > 0;
                           
                           return (
                             <div
                               key={key}
-                              className="p-3 rounded-lg border border-zinc-800 bg-zinc-950/50 opacity-60"
+                              className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5"
                             >
                               <div className="flex items-start gap-3">
                                 {hasBase64 ? (
                                   <img
                                     src={`data:image/${img.format};base64,${img.base64}`}
                                     alt={`Image ${originalIdx + 1}`}
-                                    className="w-16 h-16 rounded bg-zinc-800 object-contain flex-shrink-0 border border-zinc-700"
+                                    className="w-20 h-20 rounded bg-zinc-800 object-contain flex-shrink-0 border border-zinc-700"
                                   />
                                 ) : (
-                                  <div className="w-16 h-16 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0 border border-zinc-700">
+                                  <div className="w-20 h-20 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0 border border-zinc-700">
                                     <ImageIcon size={20} className="text-zinc-600" />
                                   </div>
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-xs font-medium text-zinc-400">
+                                  <div className="text-xs font-medium text-amber-300 mb-1">
                                     Image {originalIdx + 1} (Excluded)
                                   </div>
-                                  <div className="text-xs text-zinc-600 mt-1">
-                                    Page {img.page} • {img.width}×{img.height}px
+                                  <div className="text-xs text-zinc-400 mt-1">
+                                    Page {img.page} • {img.width}×{img.height}px • {img.format.toUpperCase()}
                                   </div>
+                                  {exclusionInfo && (
+                                    <div className="mt-2 p-2 bg-zinc-950/50 rounded border border-zinc-800">
+                                      <div className="text-xs font-medium text-amber-400 mb-1">
+                                        Exclusion Reason:
+                                      </div>
+                                      <div className="text-xs text-zinc-500">
+                                        {exclusionInfo.reason}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -675,14 +771,14 @@ export default function ImageEmbeddingStudio() {
         </div>
 
         {/* Right: Configuration Editor */}
-        <div className="glass-panel rounded-2xl p-6 space-y-4">
-          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+        <div className="glass-panel rounded-2xl p-6 flex flex-col min-h-0 overflow-hidden h-full">
+          <h2 className="text-xl font-semibold text-white flex items-center gap-2 flex-shrink-0 mb-4">
             <Settings size={20} />
             Configuration
           </h2>
 
           {currentConfig ? (
-            <div className="space-y-4">
+            <div className="space-y-4 flex-1 overflow-y-auto min-h-0 pr-2">
               <div>
                 <label className="text-sm text-zinc-300">Name</label>
                 <input
@@ -959,10 +1055,21 @@ export default function ImageEmbeddingStudio() {
               <div className="flex items-center gap-4 pt-4 border-t border-zinc-800">
                 <button
                   onClick={handleSaveConfig}
-                  className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-semibold transition-all flex items-center justify-center gap-2"
+                  className={`flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-semibold transition-all flex items-center justify-center gap-2 ${
+                    saveSuccess ? 'ring-2 ring-emerald-500' : ''
+                  }`}
                 >
-                  <Save size={16} />
-                  Save Configuration
+                  {saveSuccess ? (
+                    <>
+                      <CheckCircle2 size={16} />
+                      Saved!
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      Save Configuration
+                    </>
+                  )}
                 </button>
                 {!isNewConfig && selectedConfigId && (
                   <button
@@ -975,8 +1082,10 @@ export default function ImageEmbeddingStudio() {
               </div>
             </div>
           ) : (
-            <div className="text-center py-12 text-zinc-500">
-              Select or create a configuration to get started
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="text-center py-12 text-zinc-500">
+                Select or create a configuration to get started
+              </div>
             </div>
           )}
         </div>
