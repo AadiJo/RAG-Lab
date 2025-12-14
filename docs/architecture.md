@@ -1,10 +1,10 @@
-# RAG Bench Architecture
+# RAG-Lab Architecture
 
-This document provides a comprehensive overview of RAG Bench's modular architecture.
+This document provides a comprehensive overview of RAG-Lab's modular architecture.
 
 ## Overview
 
-RAG Bench is designed as a modular, extensible framework for evaluating Retrieval-Augmented Generation (RAG) systems. The architecture separates concerns into:
+RAG-Lab is designed as a modular, extensible framework for evaluating Retrieval-Augmented Generation (RAG) systems. The architecture separates concerns into:
 
 1. **Core Framework** - The evaluation engine, metrics, and API
 2. **Module System** - Pluggable preprocessors, filters, and search types

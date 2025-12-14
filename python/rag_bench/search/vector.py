@@ -33,7 +33,7 @@ class VectorSearch(SearchType):
     MODULE_NAME = "Vector Search"
     MODULE_DESCRIPTION = "Dense embedding similarity search using cosine similarity"
     MODULE_VERSION = "1.0.0"
-    MODULE_AUTHOR = "RAG Bench"
+    MODULE_AUTHOR = "RAG-Lab"
     MODULE_TAGS = ["search", "vector", "embedding", "semantic"]
     ENABLED_BY_DEFAULT = True
     

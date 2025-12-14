@@ -64,7 +64,7 @@ def get_registry() -> "ModuleRegistry":
 
 class ModuleRegistry:
     """
-    Central registry for all RAG Bench modules.
+    Central registry for all RAG-Lab modules.
     
     The registry maintains a catalog of all discovered modules and provides
     methods for:

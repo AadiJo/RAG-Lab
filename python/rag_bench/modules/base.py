@@ -1,7 +1,7 @@
 """
-Base Classes for RAG Bench Modules
+Base Classes for RAG-Lab Modules
 
-This module defines the abstract base classes that all RAG Bench extensions must
+This module defines the abstract base classes that all RAG-Lab extensions must
 implement. The module system is designed to be:
 
 1. **Type-safe**: All modules have well-defined interfaces
@@ -54,7 +54,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 
 class ModuleType(str, Enum):
-    """Types of modules supported by RAG Bench."""
+    """Types of modules supported by RAG-Lab."""
     
     PREPROCESSOR = "preprocessor"
     """Query preprocessors transform queries before retrieval."""
@@ -156,7 +156,7 @@ class ModuleManifest:
 
 class BaseModule(ABC):
     """
-    Abstract base class for all RAG Bench modules.
+    Abstract base class for all RAG-Lab modules.
     
     All module implementations must:
     1. Set the class-level MODULE_ID, MODULE_NAME, MODULE_DESCRIPTION

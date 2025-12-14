@@ -47,7 +47,7 @@ class BM25Search(SearchType):
     MODULE_NAME = "BM25 Search"
     MODULE_DESCRIPTION = "Sparse lexical search using BM25 algorithm"
     MODULE_VERSION = "1.0.0"
-    MODULE_AUTHOR = "RAG Bench"
+    MODULE_AUTHOR = "RAG-Lab"
     MODULE_TAGS = ["search", "lexical", "bm25", "sparse", "keyword"]
     ENABLED_BY_DEFAULT = True
     

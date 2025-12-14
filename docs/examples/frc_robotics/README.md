@@ -52,7 +52,7 @@ design, build, material, aluminum, weight, strength, power, battery, pneumatic, 
 This module is provided as an example. To use it:
 
 1. Copy the `frc_robotics` folder to `<project_root>/modules/`
-2. Restart the RAG Bench server
+2. Restart the RAG-Lab server
 3. Enable the modules from the frontend
 
 ## Customization
@@ -65,4 +65,4 @@ Use this module as a template for creating your own domain-specific modules. Key
 
 ## License
 
-MIT - Part of RAG Bench
+MIT - Part of RAG-Lab

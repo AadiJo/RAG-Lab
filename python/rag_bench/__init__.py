@@ -1,7 +1,7 @@
 """
-RAG Bench - A Modular RAG Evaluation Framework
+RAG-Lab - A Modular RAG Evaluation Framework
 
-RAG Bench is a comprehensive framework for evaluating Retrieval-Augmented Generation
+RAG-Lab is a comprehensive framework for evaluating Retrieval-Augmented Generation
 (RAG) systems. It provides:
 
 1. **Modular Architecture**: Extend functionality with custom modules
@@ -30,7 +30,7 @@ For module development, see the `rag_bench.modules` package documentation.
 """
 
 __version__ = "1.0.0"
-__author__ = "RAG Bench Contributors"
+__author__ = "RAG-Lab Contributors"
 
 from .modules import get_registry, ModuleRegistry
 

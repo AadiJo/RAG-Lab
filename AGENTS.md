@@ -4,7 +4,7 @@ Instructions for AI agents (Claude, GPT, Cursor, Copilot, etc.) working on this 
 
 ## Project Overview
 
-**RAG Lab** is a modular RAG (Retrieval-Augmented Generation) evaluation framework.
+**RAG-Lab** is a modular RAG (Retrieval-Augmented Generation) evaluation framework.
 
 **Tech Stack:**
 - Backend: Bun + TypeScript (Hono framework)

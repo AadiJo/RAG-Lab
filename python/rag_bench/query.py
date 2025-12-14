@@ -272,7 +272,7 @@ def main():
     """CLI entry point for query runner."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="RAG Bench Query Runner")
+    parser = argparse.ArgumentParser(description="RAG-Lab Query Runner")
     parser.add_argument("--chroma-path", required=True, help="Path to Chroma DB")
     parser.add_argument("--query", required=True, help="Query text")
     parser.add_argument("--k", type=int, default=10, help="Number of documents")

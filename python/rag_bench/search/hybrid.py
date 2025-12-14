@@ -44,7 +44,7 @@ class HybridSearch(SearchType):
     MODULE_NAME = "Hybrid Search"
     MODULE_DESCRIPTION = "Combines vector and BM25 search for best results"
     MODULE_VERSION = "1.0.0"
-    MODULE_AUTHOR = "RAG Bench"
+    MODULE_AUTHOR = "RAG-Lab"
     MODULE_TAGS = ["search", "hybrid", "vector", "bm25", "fusion"]
     ENABLED_BY_DEFAULT = True
     

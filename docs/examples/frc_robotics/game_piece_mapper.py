@@ -41,7 +41,7 @@ class GamePieceMapperPreprocessor(QueryPreprocessor):
     MODULE_NAME = "FRC Game Piece Mapper"
     MODULE_DESCRIPTION = "Expands queries with FRC game piece terminology by season"
     MODULE_VERSION = "1.0.0"
-    MODULE_AUTHOR = "RAG Bench / FRC Community"
+    MODULE_AUTHOR = "RAG-Lab / FRC Community"
     MODULE_TAGS = ["frc", "robotics", "game-piece", "query-expansion"]
     ENABLED_BY_DEFAULT = False  # Domain-specific, so off by default
     

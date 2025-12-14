@@ -34,7 +34,7 @@ class FRCRelevanceFilter(RelevanceFilter):
     MODULE_NAME = "FRC Relevance Filter"
     MODULE_DESCRIPTION = "Filters documents using FRC-specific keyword scoring"
     MODULE_VERSION = "1.0.0"
-    MODULE_AUTHOR = "RAG Bench / FRC Community"
+    MODULE_AUTHOR = "RAG-Lab / FRC Community"
     MODULE_TAGS = ["frc", "robotics", "filter", "relevance", "rerank"]
     ENABLED_BY_DEFAULT = False
     

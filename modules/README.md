@@ -1,6 +1,6 @@
 # User Modules Directory
 
-This directory contains user-defined modules for RAG Bench.
+This directory contains user-defined modules for RAG-Lab.
 
 Modules placed here are automatically discovered and made available
 in the frontend.

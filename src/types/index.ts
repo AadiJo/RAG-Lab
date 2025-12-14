@@ -1,5 +1,5 @@
 /**
- * RAG Eval Bench - Type Definitions
+ * RAG-Lab - Type Definitions
  * 
  * Comprehensive type definitions for the evaluation and benchmarking system.
  */

@@ -2,7 +2,7 @@
 FRC Robotics Module - Example
 
 This is an example module demonstrating how to create domain-specific
-enhancements for RAG Bench.
+enhancements for RAG-Lab.
 
 Copy this folder to the modules/ directory to use it:
     cp -r docs/examples/frc_robotics modules/
@@ -20,7 +20,7 @@ from .relevance_filter import FRCRelevanceFilter
 
 def register(registry):
     """
-    Register this module's components with the RAG Bench registry.
+    Register this module's components with the RAG-Lab registry.
     
     This function is called automatically during module discovery.
     """

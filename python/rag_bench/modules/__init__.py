@@ -1,7 +1,7 @@
 """
-RAG Bench Module System
+RAG-Lab Module System
 
-This module provides the core abstractions for extending RAG Bench with custom
+This module provides the core abstractions for extending RAG-Lab with custom
 preprocessing, post-processing, and search type implementations.
 
 Architecture Overview:

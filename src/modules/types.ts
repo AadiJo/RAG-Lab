@@ -8,7 +8,7 @@
  */
 
 /**
- * Types of modules supported by RAG Bench
+ * Types of modules supported by RAG-Lab
  */
 export type ModuleType = 'preprocessor' | 'filter' | 'search_type';
 

@@ -1,10 +1,10 @@
 # Module Development Guide
 
-This guide explains how to create custom modules for RAG Bench.
+This guide explains how to create custom modules for RAG-Lab.
 
 ## Overview
 
-RAG Bench modules extend the query pipeline with domain-specific logic. There are three types of modules:
+RAG-Lab modules extend the query pipeline with domain-specific logic. There are three types of modules:
 
 1. **Query Preprocessors** - Transform queries before retrieval
 2. **Document Filters** - Filter/rerank documents after retrieval

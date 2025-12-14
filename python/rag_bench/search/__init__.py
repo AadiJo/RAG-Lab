@@ -1,7 +1,7 @@
 """
 Built-in Search Type Implementations
 
-This module provides the core search type implementations that ship with RAG Bench:
+This module provides the core search type implementations that ship with RAG-Lab:
 
 - **VectorSearch**: Dense embedding similarity search using the vector store
 - **BM25Search**: Sparse lexical search using BM25 algorithm

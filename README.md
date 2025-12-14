@@ -1,4 +1,4 @@
-# RAG Bench
+# RAG-Lab
 
 A modular, research-grade evaluation and experimentation platform for Retrieval-Augmented Generation (RAG) pipelines. Built with Bun, TypeScript, React, and Python for high-performance evaluation of retrieval quality.
 
@@ -22,8 +22,8 @@ A modular, research-grade evaluation and experimentation platform for Retrieval-
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/rag-bench.git
-cd rag-bench
+git clone https://github.com/your-org/rag-lab.git
+cd rag-lab
 
 # Install dependencies
 bun install
@@ -61,7 +61,7 @@ Visit `http://localhost:3101` to access the dashboard.
 
 ## 🧩 Module System
 
-RAG Bench uses a pluggable module system for extensibility. Modules are discovered automatically from the `modules/` directory.
+RAG-Lab uses a pluggable module system for extensibility. Modules are discovered automatically from the `modules/` directory.
 
 ### Module Types
 
@@ -149,7 +149,7 @@ config:
 ## 📁 Project Structure
 
 ```
-rag-bench/
+RAG-Lab/
 ├── src/                    # TypeScript API server
 │   ├── api/                # REST endpoints
 │   ├── core/               # Evaluation engine
