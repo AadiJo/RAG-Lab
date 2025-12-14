@@ -12,6 +12,7 @@ import { datasetRoutes } from './datasets';
 import { textDbRoutes } from './textdb';
 import { settingsRoutes } from './settings';
 import { moduleRoutes } from './modules';
+import { imageEmbeddingRoutes } from './image-embedding';
 
 const app = new Hono();
 
@@ -53,6 +54,7 @@ app.route('/api/datasets', datasetRoutes);
 app.route('/api/textdb', textDbRoutes);
 app.route('/api/settings', settingsRoutes);
 app.route('/api/modules', moduleRoutes);
+app.route('/api/image-embedding', imageEmbeddingRoutes);
 
 // 404 handler
 app.notFound((c) => {

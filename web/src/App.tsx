@@ -8,6 +8,7 @@ import {
   Search,
   BookOpen,
   Settings,
+  Image as ImageIcon,
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import EvaluationRunner from './components/EvaluationRunner';
@@ -16,17 +17,21 @@ import DatasetsView from './components/DatasetsView';
 import TextDbsView from './components/TextDbsView';
 import DocsView from './components/DocsView';
 import SettingsView from './components/SettingsView';
-import { checkHealth, checkReadiness, listTextDbs, getEvaluationStatus } from './lib/api';
+import ImageEmbeddingStudio from './components/ImageEmbeddingStudio';
+import { checkHealth, checkReadiness, listTextDbs, getEvaluationStatus, getTextDbBuild } from './lib/api';
 
 const RUNNING_EVAL_STORAGE_KEY = 'rag-lab.runningEvalId';
 const EVAL_BADGE_STORAGE_KEY = 'rag-lab.evalBadge'; // { status: 'completed'|'failed', id, at }
+const RUNNING_TEXTDB_BUILD_STORAGE_KEY = 'rag-lab.runningTextDbBuildId';
+const TEXTDB_BUILD_BADGE_STORAGE_KEY = 'rag-lab.textDbBuildBadge'; // { status: 'completed'|'failed', id, at }
 
-type View = 'dashboard' | 'evaluate' | 'textdbs' | 'results' | 'datasets' | 'docs' | 'settings';
+type View = 'dashboard' | 'evaluate' | 'textdbs' | 'image-embedding' | 'results' | 'datasets' | 'docs' | 'settings';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [serverStatus, setServerStatus] = useState<'checking' | 'healthy' | 'error'>('checking');
   const [evalBadge, setEvalBadge] = useState<null | { status: 'running' | 'completed' | 'failed'; id?: string }>(null);
+  const [textDbBuildBadge, setTextDbBuildBadge] = useState<null | { status: 'running' | 'completed' | 'failed'; id?: string }>(null);
   const [readiness, setReadiness] = useState<{
     ready: boolean;
     ragIntegration: boolean;
@@ -116,6 +121,61 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Global text DB build badge polling (similar to evaluations)
+  useEffect(() => {
+    const tick = async () => {
+      const runningId = localStorage.getItem(RUNNING_TEXTDB_BUILD_STORAGE_KEY);
+      if (runningId) {
+        try {
+          const st = await getTextDbBuild(runningId);
+          if (st.status === 'running' || st.status === 'queued') {
+            setTextDbBuildBadge({ status: 'running', id: runningId });
+            return;
+          }
+          // Completed/failed → clear running marker and set notification badge
+          localStorage.removeItem(RUNNING_TEXTDB_BUILD_STORAGE_KEY);
+          const status = st.status === 'completed' ? 'completed' : 'failed';
+          localStorage.setItem(TEXTDB_BUILD_BADGE_STORAGE_KEY, JSON.stringify({ status, id: runningId, at: Date.now() }));
+          setTextDbBuildBadge({ status, id: runningId });
+          return;
+        } catch {
+          // Server doesn't know it anymore
+          localStorage.removeItem(RUNNING_TEXTDB_BUILD_STORAGE_KEY);
+        }
+      }
+
+      // If no running build, show completion badge if present and user isn't on the textdbs tab
+      try {
+        const raw = localStorage.getItem(TEXTDB_BUILD_BADGE_STORAGE_KEY);
+        if (!raw) {
+          setTextDbBuildBadge(null);
+          return;
+        }
+        const parsed = JSON.parse(raw) as { status?: 'completed' | 'failed'; id?: string };
+        if (!parsed.status) {
+          setTextDbBuildBadge(null);
+          return;
+        }
+        setTextDbBuildBadge({ status: parsed.status, id: parsed.id });
+      } catch {
+        setTextDbBuildBadge(null);
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 2500);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Clear completion badge when user visits the Text DBs tab
+  useEffect(() => {
+    if (currentView === 'textdbs') {
+      const raw = localStorage.getItem(TEXTDB_BUILD_BADGE_STORAGE_KEY);
+      if (raw) localStorage.removeItem(TEXTDB_BUILD_BADGE_STORAGE_KEY);
+      if (textDbBuildBadge && textDbBuildBadge.status !== 'running') setTextDbBuildBadge(null);
+    }
+  }, [currentView, textDbBuildBadge]);
+
   // Clear completion badge when user visits the History tab
   useEffect(() => {
     if (currentView === 'results') {
@@ -129,6 +189,7 @@ function App() {
     { id: 'dashboard' as View, label: 'Overview', icon: LayoutDashboard },
     { id: 'evaluate' as View, label: 'Evaluation', icon: Play },
     { id: 'textdbs' as View, label: 'Text DBs', icon: Database },
+    { id: 'image-embedding' as View, label: 'Image Studio', icon: ImageIcon },
     { id: 'docs' as View, label: 'Docs', icon: BookOpen },
     { id: 'results' as View, label: 'History', icon: History },
     { id: 'datasets' as View, label: 'Datasets', icon: Database },
@@ -183,6 +244,15 @@ function App() {
               )}
               {item.id === 'results' && evalBadge?.status === 'failed' && currentView !== 'results' && (
                 <div className="ml-auto w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]" title="New evaluation failed" />
+              )}
+              {item.id === 'textdbs' && textDbBuildBadge?.status === 'running' && currentView !== 'textdbs' && (
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" title="Database build running" />
+              )}
+              {item.id === 'textdbs' && textDbBuildBadge?.status === 'completed' && currentView !== 'textdbs' && (
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" title="Database build completed" />
+              )}
+              {item.id === 'textdbs' && textDbBuildBadge?.status === 'failed' && currentView !== 'textdbs' && (
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]" title="Database build failed" />
               )}
               {currentView === item.id && (
                 <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.8)]" />
@@ -245,6 +315,7 @@ function App() {
           {currentView === 'dashboard' && <Dashboard />}
           {currentView === 'evaluate' && <EvaluationRunner />}
           {currentView === 'textdbs' && <TextDbsView />}
+          {currentView === 'image-embedding' && <ImageEmbeddingStudio />}
           {currentView === 'docs' && <DocsView />}
           {currentView === 'results' && <ResultsViewer />}
           {currentView === 'datasets' && <DatasetsView />}

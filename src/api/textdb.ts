@@ -6,7 +6,7 @@
 
 import { Hono } from 'hono';
 import { existsSync } from 'fs';
-import { readdir, readFile, mkdir, writeFile } from 'fs/promises';
+import { readdir, readFile, mkdir, writeFile, rm } from 'fs/promises';
 import { dirname, isAbsolute, join, relative, resolve } from 'path';
 import { spawn } from 'bun';
 
@@ -138,6 +138,32 @@ textDbRoutes.post('/active', async (c) => {
 
   await setActiveDbPath(path);
   return c.json({ ok: true, activeDbPath: path });
+});
+
+// Delete a DB by name
+textDbRoutes.delete('/:name', async (c) => {
+  const name = c.req.param('name');
+  if (!name) return c.json({ error: 'name is required' }, 400);
+
+  const path = join(TEXTDBS_DIR, name);
+  if (!existsSync(path)) return c.json({ error: `DB not found: ${name}` }, 404);
+
+  // Check if it's the active DB
+  const active = await readJsonIfExists(ACTIVE_FILE);
+  if (active && (active.activeDbPath === path || active.activeDbPath === name)) {
+    // Clear active DB if we're deleting it
+    await writeFile(ACTIVE_FILE, JSON.stringify({ activeDbPath: null }, null, 2));
+  }
+
+  // Delete the directory
+  try {
+    await rm(path, { recursive: true, force: true });
+    return c.json({ ok: true, message: `Database ${name} deleted` });
+  } catch (error) {
+    return c.json({ 
+      error: error instanceof Error ? error.message : 'Failed to delete database' 
+    }, 500);
+  }
 });
 
 // Browse directories under DIR_BROWSE_ROOT (for UI folder picker)

@@ -222,6 +222,13 @@ export async function setActiveTextDb(name: string): Promise<{ ok: boolean; acti
   return res.json();
 }
 
+export async function deleteTextDb(name: string): Promise<{ ok: boolean; message?: string }> {
+  const res = await fetch(`${API_BASE}/textdb/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  });
+  return res.json();
+}
+
 export async function startTextDbBuild(payload: {
   name: string;
   inputDir: string;
@@ -454,6 +461,120 @@ export async function getFilters(): Promise<{ filters: ModuleManifest[] }> {
  */
 export async function getDocumentProcessors(): Promise<{ documentProcessors: ModuleManifest[] }> {
   const res = await fetch(`${API_BASE}/modules/document-processors`);
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Image Embedding Studio API
+// ---------------------------------------------------------------------------
+
+export interface ImageEmbeddingConfig {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  embeddingModel: 'clip' | 'blip' | 'custom';
+  customModelName?: string;
+  includeContext: boolean;
+  contextSource: 'before' | 'after' | 'both' | 'page' | 'none';
+  contextChars: number;
+  enableOCR: boolean;
+  ocrModel?: string;
+  enableCaptioning: boolean;
+  captioningModel?: string;
+  imageMinSize?: number;
+  imageMaxSize?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PdfImage {
+  page: number;
+  index: number;
+  xref: number;
+  width: number;
+  height: number;
+  format: string;
+  size_bytes: number;
+  bbox?: {
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+  };
+  base64?: string;
+}
+
+export async function listImageEmbeddingConfigs(): Promise<{ configs: ImageEmbeddingConfig[] }> {
+  const res = await fetch(`${API_BASE}/image-embedding/configs`);
+  return res.json();
+}
+
+export async function getImageEmbeddingConfig(id: string): Promise<{ config: ImageEmbeddingConfig }> {
+  const res = await fetch(`${API_BASE}/image-embedding/configs/${id}`);
+  return res.json();
+}
+
+export async function saveImageEmbeddingConfig(config: Partial<ImageEmbeddingConfig> & { name: string }): Promise<{ config: ImageEmbeddingConfig }> {
+  const res = await fetch(`${API_BASE}/image-embedding/configs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+  return res.json();
+}
+
+export async function deleteImageEmbeddingConfig(id: string): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API_BASE}/image-embedding/configs/${id}`, {
+    method: 'DELETE',
+  });
+  return res.json();
+}
+
+export async function listPdfs(dir?: string): Promise<{ pdfs: Array<{ name: string; path: string; absPath: string }>; directory: string }> {
+  const qs = dir ? `?dir=${encodeURIComponent(dir)}` : '';
+  const res = await fetch(`${API_BASE}/image-embedding/pdfs${qs}`);
+  return res.json();
+}
+
+export async function getPdfImages(filename: string, dir?: string): Promise<{ images: PdfImage[]; pdfPath: string }> {
+  const qs = dir ? `?dir=${encodeURIComponent(dir)}` : '';
+  const res = await fetch(`${API_BASE}/image-embedding/pdfs/${encodeURIComponent(filename)}/images${qs}`);
+  return res.json();
+}
+
+export async function getImageContext(
+  filename: string,
+  page: number,
+  index: number,
+  configId: string,
+  dir?: string
+): Promise<{ context: string; length: number }> {
+  const qs = new URLSearchParams();
+  if (dir) qs.append('dir', dir);
+  qs.append('configId', configId);
+  const res = await fetch(
+    `${API_BASE}/image-embedding/pdfs/${encodeURIComponent(filename)}/images/${page}/${index}/context?${qs}`
+  );
+  return res.json();
+}
+
+export async function startImageDbBuild(payload: {
+  name: string;
+  inputDir: string;
+  configId: string;
+  setActive?: boolean;
+}): Promise<{ id: string; status: string; outputDir: string }> {
+  const res = await fetch(`${API_BASE}/image-embedding/build`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function getImageDbBuild(id: string): Promise<any> {
+  const res = await fetch(`${API_BASE}/image-embedding/build/${id}`);
   return res.json();
 }
 

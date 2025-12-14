@@ -10,11 +10,14 @@ import {
   Info,
   FolderOpen,
   ChevronUp,
-  FileText
+  FileText,
+  Trash2,
 } from 'lucide-react';
+import ConfirmDialog from './ConfirmDialog';
 import { 
   listTextDbs,
   setActiveTextDb,
+  deleteTextDb,
   startTextDbBuild,
   getTextDbBuild,
   getDocumentProcessors,
@@ -42,6 +45,10 @@ export default function TextDbsView() {
   } | null>(null);
   const [dirPickerLoading, setDirPickerLoading] = useState(false);
   const [dirPickerError, setDirPickerError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; name: string | null }>({
+    isOpen: false,
+    name: null,
+  });
   const [buildForm, setBuildForm] = useState({
     name: `textdb_${new Date().toISOString().slice(0, 10)}_${Date.now().toString(36).slice(-6)}`,
     inputDir: 'data/pdfs',
@@ -55,6 +62,30 @@ export default function TextDbsView() {
   });
 
   const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const RUNNING_BUILD_STORAGE_KEY = 'rag-lab.runningTextDbBuildId';
+
+  useEffect(() => {
+    loadDbs();
+    loadDocumentProcessors();
+    
+    // Resume polling if a build is in progress
+    const storedId = localStorage.getItem(RUNNING_BUILD_STORAGE_KEY);
+    if (storedId && !buildJobId) {
+      setBuildJobId(storedId);
+      // Load initial status
+      getTextDbBuild(storedId).then(status => {
+        setBuildStatus(status);
+        // If already completed/failed, clean up
+        if (status.status === 'completed' || status.status === 'failed') {
+          localStorage.removeItem(RUNNING_BUILD_STORAGE_KEY);
+          loadDbs();
+        }
+      }).catch(() => {
+        // Build no longer exists, clean up
+        localStorage.removeItem(RUNNING_BUILD_STORAGE_KEY);
+      });
+    }
+  }, []);
 
   const loadDirPicker = async (path?: string) => {
     setDirPickerLoading(true);
@@ -69,10 +100,6 @@ export default function TextDbsView() {
     }
   };
 
-  useEffect(() => {
-    loadDbs();
-    loadDocumentProcessors();
-  }, []);
 
   const loadDocumentProcessors = async () => {
     try {
@@ -105,6 +132,7 @@ export default function TextDbsView() {
         if (status.status === 'completed' || status.status === 'failed') {
           clearInterval(t);
           pollInterval.current = null;
+          localStorage.removeItem(RUNNING_BUILD_STORAGE_KEY);
           loadDbs();
         }
       } catch (e) {
@@ -139,6 +167,23 @@ export default function TextDbsView() {
     }
   };
 
+  const handleDelete = (name: string) => {
+    setDeleteConfirm({ isOpen: true, name });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.name) return;
+    try {
+      await deleteTextDb(deleteConfirm.name);
+      await loadDbs();
+      setDeleteConfirm({ isOpen: false, name: null });
+    } catch (err) {
+      console.error('Failed to delete DB:', err);
+      alert('Failed to delete database. It may be in use or you may not have permission.');
+      setDeleteConfirm({ isOpen: false, name: null });
+    }
+  };
+
   const handleStartBuild = async () => {
     try {
       const res = await startTextDbBuild({
@@ -147,6 +192,7 @@ export default function TextDbsView() {
         moduleConfigs: {}, // Could be extended to support per-module config
       });
       setBuildJobId(res.id);
+      localStorage.setItem(RUNNING_BUILD_STORAGE_KEY, res.id);
       setBuildStatus({ status: 'running', progress: { current: 0, total: 0 } });
       setShowBuildForm(false);
     } catch (err) {
@@ -585,14 +631,23 @@ export default function TextDbsView() {
                         </span>
                       )}
                     </div>
-                    {!isActive && (
+                    <div className="flex items-center gap-2">
+                      {!isActive && (
+                        <button
+                          onClick={() => handleSetActive(db.name)}
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+                        >
+                          Set Active
+                        </button>
+                      )}
                       <button
-                        onClick={() => handleSetActive(db.name)}
-                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+                        onClick={() => handleDelete(db.name)}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition-colors"
+                        title="Delete database"
                       >
-                        Set Active
+                        <Trash2 size={14} />
                       </button>
-                    )}
+                    </div>
                   </div>
 
                   <div className="space-y-3 text-sm">
@@ -648,6 +703,18 @@ export default function TextDbsView() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        title="Delete Database"
+        message={`Are you sure you want to delete the database "${deleteConfirm.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm({ isOpen: false, name: null })}
+      />
     </div>
   );
 }

@@ -84,3 +84,5 @@ data/text_dbs/*.sqlite3
 # Keep structure files
 !data/text_dbs/.gitkeep
 !data/text_dbs/active.json.example
+
+data/image_embedding_configs/
