@@ -40,7 +40,7 @@ export default function DocsView() {
           Documentation
         </h1>
         <p className="text-zinc-500 max-w-2xl mx-auto">
-          What each metric means, how to interpret it, and what “integration mode” changes during evaluation.
+          What each metric means and how to interpret evaluation results.
         </p>
       </div>
 
@@ -49,17 +49,14 @@ export default function DocsView() {
           <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
             <BookOpen size={18} />
           </div>
-          <h2 className="text-lg font-semibold text-white">Integration modes</h2>
+          <h2 className="text-lg font-semibold text-white">Text Retrieval</h2>
         </div>
         <div className="space-y-3 text-sm text-zinc-400">
           <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800">
-            <span className="text-zinc-200 font-semibold">api</span>: calls a running FRC-RAG backend over HTTP. Uses whatever DB the backend is configured to use.
+            RAG Lab queries a local, text-only Chroma DB for retrieval evaluation. Use the <span className="text-zinc-200">Text DBs</span> page to build and manage databases from your PDF documents.
           </div>
           <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800">
-            <span className="text-zinc-200 font-semibold">direct</span>: calls the FRC-RAG Python modules directly (no server). Uses the backend’s configured DB.
-          </div>
-          <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800">
-            <span className="text-zinc-200 font-semibold">text</span>: queries a local, text-only Chroma DB. Uses the active DB selected in <span className="text-zinc-200">Text DBs</span>.
+            Supports multiple retrieval methods: <span className="text-zinc-200 font-semibold">vector</span> (semantic similarity), <span className="text-zinc-200 font-semibold">BM25</span> (lexical), <span className="text-zinc-200 font-semibold">TF</span> (term frequency), and <span className="text-zinc-200 font-semibold">hybrid</span> (combination).
           </div>
         </div>
       </div>
@@ -81,7 +78,7 @@ export default function DocsView() {
 
         <MetricCard
           title="Generation metrics (LLM judge)"
-          description="Only computed if enabled and a Chutes API token is configured."
+          description="Only computed if enabled and an LLM is configured."
           icon={MessageSquareText}
           items={[
             { name: 'Faithfulness', meaning: 'Is the answer grounded in the retrieved context, with minimal hallucination?' },
@@ -104,6 +101,4 @@ export default function DocsView() {
     </div>
   );
 }
-
-
 

@@ -29,7 +29,7 @@ interface EvaluationConfig {
   kValues: number[];
   enableGenerationMetrics: boolean;
   enableImageMetrics: boolean;
-  integrationMode: 'api' | 'direct' | 'text';
+  integrationMode: 'text';
   enableFiltering: boolean;
   // Module system configuration
   moduleConfig?: Record<string, ModuleState>;
@@ -37,7 +37,6 @@ interface EvaluationConfig {
   searchVariant?: string;
   queryOptions?: {
     targetDocs?: number;
-    enableGamePieceEnhancement?: boolean;
     includeImageTypes?: boolean;
     enableCache?: boolean;
     enableStructuredQuery?: boolean;
@@ -57,11 +56,10 @@ const DEFAULT_CONFIG: EvaluationConfig = {
   searchVariant: undefined,
   queryOptions: {
     targetDocs: 8,
-    enableGamePieceEnhancement: false, // Deprecated, now handled by modules
     includeImageTypes: false,
     enableCache: true,
     enableStructuredQuery: false,
-    retrievalMethod: 'vector', // Kept for backwards compat, but searchType takes precedence
+    retrievalMethod: 'vector',
     bm25Variant: 'bm25',
   },
 };
@@ -370,41 +368,10 @@ export default function EvaluationRunner() {
 
               {/* Toggles */}
               <div className="space-y-3">
-                <div className="space-y-2">
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/30 border border-zinc-800/50 hover:border-zinc-700 transition-colors">
-                    <span className="text-sm text-zinc-300">Integration Mode</span>
-                    <select
-                      value={config.integrationMode}
-                      onChange={(e) => setConfig(prev => ({ ...prev, integrationMode: e.target.value as EvaluationConfig['integrationMode'] }))}
-                      disabled={isRunning}
-                      className="text-sm bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                    >
-                      <option value="api">api (HTTP)</option>
-                      <option value="direct">direct (frc-rag python)</option>
-                      <option value="text">text (local chroma)</option>
-                    </select>
-                  </label>
-                  <div className="px-3 pb-2 text-xs text-zinc-500 space-y-1">
-                    {config.integrationMode === 'api' && (
-                      <div>
-                        <span className="text-zinc-400 font-medium">api:</span> Queries FRC-RAG backend via HTTP API. Requires running server at <code className="text-zinc-400">FRC_RAG_API_URL</code>.
-                      </div>
-                    )}
-                    {config.integrationMode === 'direct' && (
-                      <div>
-                        <span className="text-zinc-400 font-medium">direct:</span> Calls FRC-RAG Python code directly via Bun.spawn. No server needed, but requires <code className="text-zinc-400">FRC_RAG_BACKEND_PATH</code>.
-                      </div>
-                    )}
-                    {config.integrationMode === 'text' && (
-                      <div>
-                        <span className="text-zinc-400 font-medium">text:</span> Queries local Chroma DB directly (text-only, no images). Uses active DB from <span className="text-zinc-300">Text DBs</span> page. Fastest for rapid iteration.
-                      </div>
-                    )}
+                <div className="space-y-3 p-3 rounded-xl bg-zinc-900/20 border border-zinc-800/50">
+                  <div className="px-1 pb-2 text-xs text-zinc-500">
+                    Queries local Chroma DB directly. Uses active DB from <span className="text-zinc-300">Text DBs</span> page.
                   </div>
-                </div>
-
-                {config.integrationMode === 'text' && (
-                  <div className="space-y-3 p-3 rounded-xl bg-zinc-900/20 border border-zinc-800/50">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-zinc-300">Active Text DB</span>
                       <span className="text-xs font-mono text-zinc-500 truncate max-w-[220px]">
@@ -478,12 +445,10 @@ export default function EvaluationRunner() {
                         className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-indigo-500"
                       />
                     </label>
-                  </div>
-                )}
+                </div>
                 
                 {/* Module System Configuration */}
-                {config.integrationMode === 'text' && (
-                  <ModulesConfig
+                <ModulesConfig
                     moduleConfig={config.moduleConfig || {}}
                     onModuleConfigChange={(moduleConfig) => setConfig(prev => ({ ...prev, moduleConfig }))}
                     searchType={config.searchType || 'vector'}
@@ -501,7 +466,6 @@ export default function EvaluationRunner() {
                     }))}
                     disabled={isRunning}
                   />
-                )}
 
                 <label className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/30 border border-zinc-800/50 cursor-pointer hover:border-zinc-700 transition-colors">
                   <span className="text-sm text-zinc-300">Enable Generation Metrics (LLM Judge)</span>

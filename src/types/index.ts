@@ -259,8 +259,8 @@ export interface EvaluationConfig {
   enableGenerationMetrics: boolean;
   /** Whether to evaluate image retrieval */
   enableImageMetrics: boolean;
-  /** Integration mode: 'api' (HTTP), 'direct' (frc-rag python bridge), or 'text' (local text-only Chroma query) */
-  integrationMode: 'api' | 'direct' | 'text';
+  /** Integration mode: 'text' (local text-only Chroma query) */
+  integrationMode: 'text';
   /** Whether to enable post-processing filtering in RAG */
   enableFiltering?: boolean;
   /**
@@ -270,15 +270,13 @@ export interface EvaluationConfig {
   queryOptions?: {
     /** Target number of docs after post-filtering (only meaningful when enableFiltering=true). */
     targetDocs?: number;
-    /** Toggle game-piece query enhancement for text mode. */
-    enableGamePieceEnhancement?: boolean;
     /** Include image-typed chunks in text retrieval (defaults to false). */
     includeImageTypes?: boolean;
-    /** Cache query results in the Bun process (text mode only). */
+    /** Cache query results in the Bun process. */
     enableCache?: boolean;
-    /** Use structured query parsing (LLM -> {search, filter}) before retrieval (text mode only). */
+    /** Use structured query parsing (LLM -> {search, filter}) before retrieval. */
     enableStructuredQuery?: boolean;
-    /** Retrieval method for text mode. */
+    /** Retrieval method. */
     retrievalMethod?: 'vector' | 'bm25' | 'tf' | 'hybrid';
     /** Lexical scoring variant. */
     bm25Variant?: 'bm25' | 'bm25_no_idf' | 'tf';
@@ -301,13 +299,11 @@ export interface ChutesConfig {
 }
 
 /**
- * FRC-RAG integration configuration
+ * Text DB configuration for local Chroma retrieval
  */
-export interface FRCRAGConfig {
-  /** API URL for remote connection */
-  apiUrl?: string;
-  /** Path to backend for direct Python bridge */
-  backendPath?: string;
+export interface TextDbConfig {
+  /** Path to the Chroma database directory */
+  chromaPath?: string;
 }
 
 // =============================================================================

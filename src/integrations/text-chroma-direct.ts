@@ -1,12 +1,12 @@
 /**
  * Text-only Chroma Direct Integration (Python Bridge)
  *
- * Queries a persisted Chroma DB directly (no dependency on the external `frc-rag` repo).
+ * Queries a persisted Chroma DB directly via Python.
  * Intended for rapid iteration on text retrieval quality.
  */
 
 import { spawn } from 'bun';
-import type { RAGResponse, RetrievedDocument, FRCRAGConfig } from '@/types';
+import type { RAGResponse, RetrievedDocument, TextDbConfig } from '@/types';
 import { existsSync } from 'fs';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -15,7 +15,6 @@ interface TextQueryOptions {
   k?: number;
   enableFiltering?: boolean;
   targetDocs?: number;
-  enableGamePieceEnhancement?: boolean;
   includeImageTypes?: boolean;
   enableCache?: boolean;
   retrievalMethod?: 'vector' | 'bm25' | 'tf' | 'hybrid';
@@ -23,23 +22,19 @@ interface TextQueryOptions {
   where?: Record<string, string>;
 }
 
-const DEFAULT_CONFIG: FRCRAGConfig = {
-  // Default to the `frc-rag` backend DB if present, but can be overridden.
-  backendPath: process.env.FRC_RAG_BACKEND_PATH || '/home/aadi/L-Projects/frc-rag/backend',
+const DEFAULT_CONFIG: TextDbConfig = {
+  chromaPath: process.env.TEXT_CHROMA_PATH || process.env.CHROMA_PATH || './data/text_dbs',
 };
 
 export class TextChromaDirectClient {
   private pythonPath: string;
   private defaultChromaPath: string;
 
-  constructor(config?: Partial<FRCRAGConfig>) {
+  constructor(config?: Partial<TextDbConfig>) {
     const mergedConfig = { ...DEFAULT_CONFIG, ...config };
     const venvPython = join(process.cwd(), '.venv-textdb', 'bin', 'python');
     this.pythonPath = process.env.PYTHON_PATH || (existsSync(venvPython) ? venvPython : 'python3');
-
-    // Prefer explicit env override; otherwise default to `<backendPath>/db`
-    const envPath = process.env.TEXT_CHROMA_PATH || process.env.CHROMA_PATH;
-    this.defaultChromaPath = envPath || `${mergedConfig.backendPath || DEFAULT_CONFIG.backendPath}/db`;
+    this.defaultChromaPath = mergedConfig.chromaPath || DEFAULT_CONFIG.chromaPath!;
   }
 
   private cache = new Map<string, { at: number; value: RAGResponse }>();
@@ -96,7 +91,6 @@ export class TextChromaDirectClient {
     const k = options?.k || 10;
     const enableFiltering = options?.enableFiltering || false;
     const targetDocs = options?.targetDocs;
-    const enableGamePieceEnhancement = options?.enableGamePieceEnhancement;
     const includeImageTypes = options?.includeImageTypes;
     const enableCache = options?.enableCache || false;
     const retrievalMethod = options?.retrievalMethod || 'vector';
@@ -113,7 +107,6 @@ export class TextChromaDirectClient {
         k,
         enableFiltering,
         targetDocs,
-        enableGamePieceEnhancement,
         includeImageTypes,
         retrievalMethod,
         bm25Variant,
@@ -137,7 +130,6 @@ export class TextChromaDirectClient {
         k.toString(),
         ...(enableFiltering ? ['--enable-filtering'] : []),
         ...(targetDocs ? ['--target-docs', targetDocs.toString()] : []),
-        ...(enableGamePieceEnhancement === false ? ['--disable-game-piece-enhancement'] : []),
         ...(includeImageTypes ? ['--include-image-types'] : []),
         ...(where ? ['--where-json', JSON.stringify(where)] : []),
         '--retrieval-method',
@@ -214,7 +206,6 @@ export class TextChromaDirectClient {
       images: [],
       retrievalTimeMs,
       metadata: {
-        matchedPieces: raw.matched_pieces as string[] | undefined,
         contextSources: raw.context_sources as number | undefined,
         postProcessingApplied: raw.post_processing_applied as boolean | undefined,
       },
@@ -223,5 +214,4 @@ export class TextChromaDirectClient {
 }
 
 export const textChromaDirect = new TextChromaDirectClient();
-
 

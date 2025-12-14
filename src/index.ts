@@ -13,12 +13,9 @@ console.log('🚀 Starting RAG Lab Server...');
 console.log(`📊 Version: 1.0.0`);
 console.log(`🌐 Host: ${HOST}:${PORT}`);
 
-// Check environment
-const frcRagUrl = process.env.FRC_RAG_API_URL || 'http://localhost:5002';
-
 console.log('\n📋 Configuration:');
 console.log(`   LLM Judge: Ollama (configure model in Settings)`);
-console.log(`   FRC-RAG API: ${frcRagUrl}`);
+console.log(`   Text DBs Dir: ${process.env.TEXTDBS_DIR || './data/text_dbs'}`);
 console.log(`   Datasets Dir: ${process.env.DATASETS_DIR || './datasets'}`);
 console.log(`   Results Dir: ${process.env.RESULTS_DIR || './results'}`);
 

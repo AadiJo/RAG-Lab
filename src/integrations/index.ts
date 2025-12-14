@@ -1,115 +1,69 @@
 /**
- * FRC-RAG Integration Module
+ * RAG Integration Module
  * 
- * Provides unified interface for both API and Direct integration modes.
+ * Provides unified interface for text-only Chroma retrieval.
  */
 
-import { FRCRAGApiClient, frcRagApi } from './frc-rag-api';
-import { FRCRAGDirectClient, frcRagDirect } from './frc-rag-direct';
 import { TextChromaDirectClient, textChromaDirect } from './text-chroma-direct';
 import type { RAGResponse } from '@/types';
 
-export { FRCRAGApiClient, frcRagApi } from './frc-rag-api';
-export { FRCRAGDirectClient, frcRagDirect } from './frc-rag-direct';
 export { TextChromaDirectClient, textChromaDirect } from './text-chroma-direct';
-
-type IntegrationMode = 'api' | 'direct' | 'text';
 
 interface UnifiedQueryOptions {
   k?: number;
   enableFiltering?: boolean;
   targetDocs?: number;
-  enableGamePieceEnhancement?: boolean;
   includeImageTypes?: boolean;
   enableCache?: boolean;
   retrievalMethod?: 'vector' | 'bm25' | 'tf' | 'hybrid';
   bm25Variant?: 'bm25' | 'bm25_no_idf' | 'tf';
   where?: Record<string, string>;
-  mode?: IntegrationMode;
 }
 
 /**
- * Unified RAG client that can use either API or Direct mode
+ * Unified RAG client for text-only Chroma retrieval
  */
 export class UnifiedRAGClient {
-  private apiClient: FRCRAGApiClient;
-  private directClient: FRCRAGDirectClient;
   private textClient: TextChromaDirectClient;
-  private defaultMode: IntegrationMode;
 
-  constructor(defaultMode: IntegrationMode = 'api') {
-    this.apiClient = frcRagApi;
-    this.directClient = frcRagDirect;
+  constructor() {
     this.textClient = textChromaDirect;
-    this.defaultMode = defaultMode;
   }
 
   /**
-   * Check health/readiness of the specified integration mode
+   * Check health/readiness of the text retrieval system
    */
-  async checkHealth(mode?: IntegrationMode): Promise<{ ready: boolean; error?: string }> {
-    const useMode = mode || this.defaultMode;
-
-    if (useMode === 'api') {
-      const result = await this.apiClient.checkHealth();
-      return { ready: result.healthy };
-    } else if (useMode === 'direct') {
-      return this.directClient.checkSetup();
-    } else {
-      return this.textClient.checkSetup();
-    }
+  async checkHealth(): Promise<{ ready: boolean; error?: string }> {
+    return this.textClient.checkSetup();
   }
 
   /**
-   * Query the RAG system using the specified mode
+   * Query the RAG system
    */
   async query(
     queryText: string,
     options?: UnifiedQueryOptions
   ): Promise<RAGResponse> {
-    const mode = options?.mode || this.defaultMode;
-
-    if (mode === 'api') {
-      return this.apiClient.query(queryText, {
-        k: options?.k,
-        enableFiltering: options?.enableFiltering,
-      });
-    } else if (mode === 'direct') {
-      return this.directClient.query(queryText, {
-        k: options?.k,
-        enableFiltering: options?.enableFiltering,
-      });
-    } else {
-      return this.textClient.query(queryText, {
-        k: options?.k,
-        enableFiltering: options?.enableFiltering,
-        targetDocs: options?.targetDocs,
-        enableGamePieceEnhancement: options?.enableGamePieceEnhancement,
-        includeImageTypes: options?.includeImageTypes,
-        enableCache: options?.enableCache,
-        retrievalMethod: options?.retrievalMethod,
-        bm25Variant: options?.bm25Variant,
-        where: options?.where,
-      });
-    }
+    return this.textClient.query(queryText, {
+      k: options?.k,
+      enableFiltering: options?.enableFiltering,
+      targetDocs: options?.targetDocs,
+      includeImageTypes: options?.includeImageTypes,
+      enableCache: options?.enableCache,
+      retrievalMethod: options?.retrievalMethod,
+      bm25Variant: options?.bm25Variant,
+      where: options?.where,
+    });
   }
 
   /**
-   * Get the current default mode
+   * Set the default mode (kept for API compatibility, but only 'text' is supported)
    */
-  getDefaultMode(): IntegrationMode {
-    return this.defaultMode;
-  }
-
-  /**
-   * Set the default mode
-   */
-  setDefaultMode(mode: IntegrationMode): void {
-    this.defaultMode = mode;
+  setDefaultMode(_mode: string): void {
+    // No-op: only text mode is supported now
   }
 }
 
 // Export singleton
 export const ragClient = new UnifiedRAGClient();
-
 

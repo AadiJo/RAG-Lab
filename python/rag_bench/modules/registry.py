@@ -34,6 +34,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 from .base import (
     BaseModule,
+    DocumentProcessor,
     ModuleManifest,
     ModuleType,
     QueryPreprocessor,
@@ -77,6 +78,7 @@ class ModuleRegistry:
         preprocessors: Dict mapping module ID to preprocessor class
         filters: Dict mapping module ID to filter class
         search_types: Dict mapping module ID to search type class
+        document_processors: Dict mapping module ID to document processor class
         modules_dir: Path to the modules directory
     """
     
@@ -91,6 +93,10 @@ class ModuleRegistry:
         self.preprocessors: Dict[str, Type[QueryPreprocessor]] = {}
         self.filters: Dict[str, Type[RelevanceFilter]] = {}
         self.search_types: Dict[str, Type[SearchType]] = {}
+        self.document_processors: Dict[str, Type[DocumentProcessor]] = {}
+        
+        # Unified module lookup
+        self._modules: Dict[str, Type[BaseModule]] = {}
         
         # Find modules directory
         if modules_dir:
@@ -128,6 +134,7 @@ class ModuleRegistry:
         if not cls.MODULE_ID:
             raise ValueError(f"Preprocessor {cls.__name__} has no MODULE_ID")
         self.preprocessors[cls.MODULE_ID] = cls
+        self._modules[cls.MODULE_ID] = cls
     
     def register_filter(self, cls: Type[RelevanceFilter]) -> None:
         """
@@ -139,6 +146,7 @@ class ModuleRegistry:
         if not cls.MODULE_ID:
             raise ValueError(f"Filter {cls.__name__} has no MODULE_ID")
         self.filters[cls.MODULE_ID] = cls
+        self._modules[cls.MODULE_ID] = cls
     
     def register_search_type(self, cls: Type[SearchType]) -> None:
         """
@@ -150,6 +158,19 @@ class ModuleRegistry:
         if not cls.MODULE_ID:
             raise ValueError(f"SearchType {cls.__name__} has no MODULE_ID")
         self.search_types[cls.MODULE_ID] = cls
+        self._modules[cls.MODULE_ID] = cls
+    
+    def register_document_processor(self, cls: Type[DocumentProcessor]) -> None:
+        """
+        Register a document processor class.
+        
+        Args:
+            cls: The document processor class to register
+        """
+        if not cls.MODULE_ID:
+            raise ValueError(f"DocumentProcessor {cls.__name__} has no MODULE_ID")
+        self.document_processors[cls.MODULE_ID] = cls
+        self._modules[cls.MODULE_ID] = cls
     
     def register(self, cls: Type[BaseModule]) -> None:
         """
@@ -165,8 +186,22 @@ class ModuleRegistry:
             self.register_filter(cls)  # type: ignore
         elif module_type == ModuleType.SEARCH_TYPE:
             self.register_search_type(cls)  # type: ignore
+        elif module_type == ModuleType.DOCUMENT_PROCESSOR:
+            self.register_document_processor(cls)  # type: ignore
         else:
             raise ValueError(f"Unknown module type: {module_type}")
+    
+    def get_module(self, module_id: str) -> Optional[Type[BaseModule]]:
+        """
+        Get a module class by ID.
+        
+        Args:
+            module_id: The module ID to look up
+        
+        Returns:
+            The module class or None if not found
+        """
+        return self._modules.get(module_id)
     
     def discover_modules(self) -> None:
         """
@@ -246,7 +281,49 @@ class ModuleRegistry:
             manifest["variants"] = cls.get_variants()
             modules.append(manifest)
         
+        for cls in self.document_processors.values():
+            modules.append(cls.get_manifest().to_dict())
+        
         return modules
+    
+    def list_document_processors(self) -> List[Dict[str, Any]]:
+        """
+        List all registered document processors.
+        
+        Returns:
+            List of document processor manifests
+        """
+        return [cls.get_manifest().to_dict() for cls in self.document_processors.values()]
+    
+    def get_enabled_document_processors(
+        self,
+        module_config: Dict[str, Dict[str, Any]],
+    ) -> List[DocumentProcessor]:
+        """
+        Get instantiated document processors based on configuration.
+        
+        Args:
+            module_config: Dict mapping module IDs to their config
+        
+        Returns:
+            List of instantiated document processor objects
+        """
+        instances = []
+        
+        for module_id, cls in self.document_processors.items():
+            cfg = module_config.get(module_id, {})
+            enabled = cfg.get("enabled", cls.ENABLED_BY_DEFAULT)
+            if not enabled:
+                continue
+            
+            instance_config = cfg.get("config", {})
+            try:
+                instance = cls(instance_config)
+                instances.append(instance)
+            except Exception as e:
+                print(f"Warning: Failed to instantiate document processor '{module_id}': {e}")
+        
+        return instances
     
     def list_search_types(self) -> List[Dict[str, Any]]:
         """

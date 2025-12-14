@@ -47,6 +47,7 @@ When asked to create a module, follow this structure:
    - `QueryPreprocessor` for query transformation
    - `RelevanceFilter` for document filtering/reranking
    - `SearchType` for custom retrieval strategies
+   - `DocumentProcessor` for document transformation during ingestion
 
 3. **Required attributes:**
    ```python
@@ -60,7 +61,7 @@ When asked to create a module, follow this structure:
 5. **Create `README.md`** documenting the module
 
 **Template locations:**
-- `docs/examples/frc_robotics/` - Complete example module
+- `docs/examples/` - Example modules (for reference)
 - `python/rag_bench/modules/base.py` - Base classes
 - `python/rag_bench/search/` - Search type examples
 
@@ -184,6 +185,7 @@ cd web && bun run dev # Frontend :3101
 | `QueryPreprocessor` | `process(query, context)` | Query expansion, normalization |
 | `RelevanceFilter` | `filter(query, docs, context)` | Reranking, filtering |
 | `SearchType` | `search(query, db, k, context)` | Custom retrieval |
+| `DocumentProcessor` | `process_document(content, metadata, context)` | Metadata extraction, content transformation |
 
 ### Key Files
 

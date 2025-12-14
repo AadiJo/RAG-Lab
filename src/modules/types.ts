@@ -10,7 +10,7 @@
 /**
  * Types of modules supported by RAG-Lab
  */
-export type ModuleType = 'preprocessor' | 'filter' | 'search_type';
+export type ModuleType = 'preprocessor' | 'filter' | 'search_type' | 'document_processor';
 
 /**
  * Configuration option exposed by a module
@@ -62,7 +62,7 @@ export interface SearchVariant {
  * the module configuration UI.
  */
 export interface ModuleManifest {
-  /** Unique module identifier (e.g., "frc-game-piece-mapper") */
+  /** Unique module identifier (e.g., "my-query-expander") */
   id: string;
   
   /** Human-readable name */

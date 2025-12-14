@@ -152,7 +152,7 @@ export function clearModuleCache(): void {
 /**
  * Get modules by type
  */
-export async function getModulesByType(type: 'preprocessor' | 'filter' | 'search_type'): Promise<ModuleManifest[]> {
+export async function getModulesByType(type: 'preprocessor' | 'filter' | 'search_type' | 'document_processor'): Promise<ModuleManifest[]> {
   const { modules } = await discoverModules();
   return modules.filter(m => m.type === type);
 }
@@ -177,4 +177,11 @@ export async function getFilters(): Promise<ModuleManifest[]> {
 export async function getSearchTypes(): Promise<SearchTypeDescriptor[]> {
   const { searchTypes } = await discoverModules();
   return searchTypes.length > 0 ? searchTypes : getBuiltinSearchTypes();
+}
+
+/**
+ * Get document processor modules
+ */
+export async function getDocumentProcessors(): Promise<ModuleManifest[]> {
+  return getModulesByType('document_processor');
 }

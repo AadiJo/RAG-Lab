@@ -34,9 +34,9 @@ rag-lab/
 │       └── query.py          # Query runner
 │
 ├── modules/                  # User modules (GITIGNORED)
-│   └── frc_robotics/         # Example: FRC domain module
+│   └── my_domain/            # Example: Domain-specific module
 │       ├── __init__.py
-│       ├── game_piece_mapper.py
+│       ├── query_expander.py
 │       └── relevance_filter.py
 │
 ├── web/                      # React frontend
@@ -45,8 +45,7 @@ rag-lab/
 │       └── lib/              # API client
 │
 ├── datasets/                 # Evaluation datasets
-│   ├── general/              # General RAG benchmarks
-│   └── frc-specific/         # Domain-specific (gitignored)
+│   └── general/              # General RAG benchmarks
 │
 ├── data/                     # Runtime data
 │   └── text_dbs/             # Vector stores
@@ -96,6 +95,21 @@ Define retrieval strategies. Built-in types:
 class SearchType(BaseModule):
     def search(self, query: str, db, k: int, context: dict) -> tuple[list, dict]:
         # Return (documents, updated_context)
+        pass
+```
+
+#### 4. Document Processors
+Transform documents during database ingestion. Use cases:
+- Metadata extraction from filenames
+- Content transformation
+- Document filtering
+- Domain-specific annotations
+
+```python
+class DocumentProcessor(BaseModule):
+    def process_document(self, content: str, metadata: dict, context: dict) -> tuple[str, dict, dict]:
+        # Return (processed_content, updated_metadata, updated_context)
+        # Return None for content to skip/filter the document
         pass
 ```
 

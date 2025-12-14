@@ -232,6 +232,8 @@ export async function startTextDbBuild(payload: {
   embeddingDevice: string;
   includeFilenameBanner: boolean;
   setActive: boolean;
+  enabledModules?: string[];
+  moduleConfigs?: Record<string, Record<string, unknown>>;
 }): Promise<{ id: string; status: string; outputDir: string }> {
   const res = await fetch(`${API_BASE}/textdb/build`, {
     method: 'POST',
@@ -243,6 +245,19 @@ export async function startTextDbBuild(payload: {
 
 export async function getTextDbBuild(id: string): Promise<any> {
   const res = await fetch(`${API_BASE}/textdb/build/${id}`);
+  return res.json();
+}
+
+export async function browseTextDbDirectories(path?: string): Promise<{
+  root: string;
+  path: string;
+  parent: string | null;
+  directories: Array<{ name: string; path: string; type?: 'directory' }>;
+  files?: Array<{ name: string; path: string; type?: 'file' }>;
+  defaultPdfInputDir: string;
+}> {
+  const qs = path ? `?path=${encodeURIComponent(path)}` : '';
+  const res = await fetch(`${API_BASE}/textdb/browse${qs}`);
   return res.json();
 }
 
@@ -359,7 +374,7 @@ export interface ModuleManifest {
   id: string;
   name: string;
   description: string;
-  type: 'preprocessor' | 'filter' | 'search_type';
+  type: 'preprocessor' | 'filter' | 'search_type' | 'document_processor';
   version: string;
   author?: string;
   enabledByDefault: boolean;
@@ -431,6 +446,14 @@ export async function getPreprocessors(): Promise<{ preprocessors: ModuleManifes
  */
 export async function getFilters(): Promise<{ filters: ModuleManifest[] }> {
   const res = await fetch(`${API_BASE}/modules/filters`);
+  return res.json();
+}
+
+/**
+ * Get document processor modules only
+ */
+export async function getDocumentProcessors(): Promise<{ documentProcessors: ModuleManifest[] }> {
+  const res = await fetch(`${API_BASE}/modules/document-processors`);
   return res.json();
 }
 

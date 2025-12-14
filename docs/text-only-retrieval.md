@@ -1,58 +1,47 @@
-## Text-only DB + Query Isolation (from `frc-rag`)
+## Text-only Retrieval Mode
 
-This repo now contains a **text-only** querying path that mirrors the core of `frc-rag`’s retrieval logic, without importing or modifying the external `frc-rag` codebase.
+RAG-Lab includes a domain-agnostic text retrieval system for evaluating document retrieval quality.
 
-### What `frc-rag` does for text retrieval (key facts)
+### Overview
 
-- **Vector DB**: persisted Chroma database at `CHROMA_PATH` (default `backend/db`)
-- **Embeddings**: `HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5")`
-- **Query**: `Chroma(...).similarity_search(query, k=K)` (retrieves `Document` objects with `page_content` + `metadata`)
-- **Optional post-filter**: a lightweight relevance scoring filter (keyword overlap + FRC keyword boost) that can reduce noise
+The text retrieval system provides:
 
-DB creation is primarily handled in `frc-rag/backend/src/utils/database_setup.py` via:
-- `Chroma.from_documents(..., persist_directory=CHROMA_PATH)`
-- plus an additional **image** collection (`image_embeddings`) which we intentionally ignore for text-only mode
+- **Vector search**: Dense embedding similarity (Chroma + HuggingFace embeddings)
+- **Lexical search**: BM25 sparse retrieval
+- **Hybrid search**: Combined vector + lexical scoring
+- **Post-processing**: Optional relevance filtering
 
-### What this repo adds (text-only mode)
+### Components
 
 - **Python query script**: `python/text_rag/query_text.py`
-  - Loads a persisted Chroma DB (same format as `frc-rag`)
-  - Uses the same embedding model by default
+  - Loads a persisted Chroma DB
+  - Supports multiple retrieval methods
   - Optionally applies post-filtering
-  - **Excludes image-only chunk types by default** so text evaluation isn’t polluted by OCR/image contexts
+  - Extensible via modules
 
 - **Bun integration**: `src/integrations/text-chroma-direct.ts`
-  - Adds a new integration mode: `text`
-  - Works with the existing evaluator + metrics pipeline
+  - `text` integration mode
+  - Works with the evaluation pipeline
+
+- **DB builder**: `python/text_rag/build_text_db.py`
+  - Ingest PDFs into Chroma DB
+  - Configurable chunking and embeddings
 
 ### Configuration
 
-- **DB path**:
-  - `TEXT_CHROMA_PATH=/absolute/path/to/db`
-  - or `CHROMA_PATH=/absolute/path/to/db`
-  - default: `/home/aadi/L-Projects/frc-rag/backend/db`
+**Environment Variables:**
 
-- **Embedding model**:
-  - `TEXT_EMBEDDING_MODEL=BAAI/bge-large-en-v1.5` (default)
-  - `TEXT_EMBEDDING_DEVICE=cpu` (default)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TEXT_CHROMA_PATH` | `./data/text_dbs` | Path to vector database |
+| `CHROMA_PATH` | (fallback for above) | Alternative path variable |
+| `TEXT_EMBEDDING_MODEL` | `BAAI/bge-large-en-v1.5` | HuggingFace embedding model |
+| `TEXT_EMBEDDING_DEVICE` | `cpu` | Device for embeddings |
+| `PYTHON_PATH` | (auto-detect) | Python interpreter path |
 
-### Quick usage
+### Quick Start
 
-Install the python deps (recommended in a venv):
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r python/requirements-text.txt
-```
-
-If you want the **web UI DB builder** and **text mode querying** to use that venv, set:
-
-```bash
-export PYTHON_PATH="$(pwd)/.venv-textdb/bin/python"
-```
-
-Or create a repo-local venv at `.venv-textdb/` (auto-detected by the server):
+**1. Install Python dependencies:**
 
 ```bash
 python3 -m venv .venv-textdb
@@ -60,17 +49,35 @@ source .venv-textdb/bin/activate
 pip install -r python/requirements-text.txt
 ```
 
-Run a local text query:
+**2. Build a vector database from PDFs:**
 
 ```bash
-TEXT_CHROMA_PATH=/home/aadi/L-Projects/frc-rag/backend/db \
-bun run text:query --query "How do I tune a PID loop?" --k 10 --filter
+python python/text_rag/build_text_db.py \
+  --input-dir ./data/pdfs \
+  --output-dir ./data/text_dbs/my-corpus
 ```
 
-Run an evaluation using the text-only mode:
+Notes:
+- `--input-dir` defaults to `./data/pdfs` (or `TEXTDB_PDF_INPUT_DIR`) if omitted.
+- In the web UI (Text Databases → New Database), the **Input Directory** defaults to `data/pdfs` and the **Browse** button lets you pick a folder under `./data/`.
+
+**3. Run a query:**
 
 ```bash
-bun run evaluate --dataset frc-eval-dataset --mode text --k 5,10 --filter
+bun run text:query --query "Your search query" --k 10
 ```
 
+**4. Run an evaluation:**
 
+```bash
+bun run evaluate --dataset my-dataset --mode text --k 5,10
+```
+
+### Extending with Modules
+
+The text retrieval system is designed to be extended via modules:
+
+- **Query Preprocessors**: Transform queries before retrieval (e.g., query expansion)
+- **Relevance Filters**: Rerank/filter results after retrieval
+
+See `docs/module-development.md` for creating custom modules.

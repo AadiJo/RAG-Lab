@@ -1,8 +1,9 @@
 """
 Simple post-processing filter for text retrieval.
 
-This mirrors the intent of `frc-rag`'s lightweight relevance filter but is kept
-standalone so `rag-eval-bench` can evolve independently.
+A lightweight, domain-agnostic relevance filter based on query-document
+term overlap. For domain-specific relevance scoring, create a custom
+RelevanceFilter module.
 """
 
 import re
@@ -14,69 +15,34 @@ import numpy as np
 class SimplePostProcessor:
     """
     Lightweight post-processing filter for improving retrieval precision.
+    
+    Uses query-document term overlap for relevance scoring.
+    Domain-specific keyword boosting can be added via modules.
     """
 
     def __init__(self, min_relevance_score: float = 0.3):
         self.min_relevance_score = min_relevance_score
 
-        # FRC-specific keywords for relevance scoring (kept to match existing domain behavior)
-        self.high_value_keywords = [
-            "motor",
-            "gear",
-            "ratio",
-            "wheel",
-            "sensor",
-            "encoder",
-            "gyro",
-            "autonomous",
-            "teleop",
-            "programming",
-            "pid",
-            "control",
-            "feedback",
-            "intake",
-            "shooter",
-            "drivetrain",
-            "elevator",
-            "arm",
-            "chassis",
-            "swerve",
-            "tank",
-            "camera",
-            "vision",
-            "apriltag",
-            "pathfinding",
-        ]
-
-        self.medium_value_keywords = [
-            "design",
-            "build",
-            "material",
-            "aluminum",
-            "weight",
-            "strength",
-            "power",
-            "battery",
-            "pneumatic",
-            "mechanical",
-            "electrical",
-        ]
-
     def calculate_relevance_score(self, query: str, document: str) -> float:
-        """Calculate relevance score between query and document."""
+        """
+        Calculate relevance score between query and document.
+        
+        Uses term overlap between query and document, with a length penalty
+        for very short or very long documents.
+        """
         query_lower = query.lower()
         doc_lower = document.lower()
 
         query_words = set(re.findall(r"\b\w+\b", query_lower))
         doc_words = set(re.findall(r"\b\w+\b", doc_lower))
 
+        if not query_words:
+            return 0.0
+
         overlap = len(query_words.intersection(doc_words))
-        keyword_score = overlap / len(query_words) if query_words else 0.0
+        keyword_score = overlap / len(query_words)
 
-        high_value_matches = sum(1 for kw in self.high_value_keywords if kw in doc_lower)
-        medium_value_matches = sum(1 for kw in self.medium_value_keywords if kw in doc_lower)
-        frc_score = (high_value_matches * 3 + medium_value_matches * 2) / 100.0
-
+        # Length penalty: prefer medium-length documents
         doc_length = len(document.split())
         length_penalty = 1.0
         if doc_length < 50:
@@ -84,7 +50,7 @@ class SimplePostProcessor:
         elif doc_length > 1000:
             length_penalty = 0.8
 
-        relevance_score = (keyword_score * 0.5 + frc_score * 0.5) * length_penalty
+        relevance_score = keyword_score * length_penalty
         return float(min(relevance_score, 1.0))
 
     def filter_documents(self, query: str, documents: List[str], target_count: int = 10) -> Tuple[List[str], float]:

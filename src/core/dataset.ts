@@ -33,12 +33,31 @@ export class DatasetManager {
   }
 
   /**
+   * Discover all category directories dynamically
+   */
+  private async discoverCategories(): Promise<string[]> {
+    if (!existsSync(this.datasetsPath)) return [];
+    
+    const entries = await readdir(this.datasetsPath, { withFileTypes: true });
+    const categories: string[] = [];
+    
+    for (const entry of entries) {
+      if (entry.isDirectory() && !entry.name.startsWith('.')) {
+        categories.push(entry.name);
+      }
+    }
+    
+    return categories;
+  }
+
+  /**
    * List all available datasets
    */
   async listDatasets(): Promise<Array<{ id: string; name: string; path: string; category: string }>> {
     const datasets: Array<{ id: string; name: string; path: string; category: string }> = [];
 
-    const categories = ['frc-specific', 'general'];
+    // Dynamically discover categories
+    const categories = await this.discoverCategories();
 
     for (const category of categories) {
       const categoryPath = join(this.datasetsPath, category);
@@ -77,8 +96,8 @@ export class DatasetManager {
       return this.cache.get(datasetId)!;
     }
 
-    // Search in all categories
-    const categories = ['frc-specific', 'general'];
+    // Dynamically discover and search in all categories
+    const categories = await this.discoverCategories();
 
     for (const category of categories) {
       const filePath = join(this.datasetsPath, category, `${datasetId}.json`);

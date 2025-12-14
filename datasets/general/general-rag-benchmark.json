@@ -1,149 +1,59 @@
 {
   "id": "general-rag-benchmark",
   "name": "General RAG Benchmark Dataset",
-  "description": "Domain-agnostic test cases for evaluating general RAG capabilities including factual recall, multi-hop reasoning, negative queries, and context-dependent queries.",
+  "description": "Domain-agnostic test cases for evaluating general RAG capabilities including factual recall, multi-hop reasoning, and comparison queries. Replace with your domain-specific test cases.",
   "version": "1.0.0",
   "createdAt": "2024-12-13T00:00:00.000Z",
   "updatedAt": "2024-12-13T00:00:00.000Z",
   "metadata": {
     "domain": "general",
-    "source": "RAG evaluation research",
+    "source": "RAG evaluation framework",
     "author": "RAG-Lab"
   },
   "testCases": [
     {
-      "id": "factual-simple",
-      "query": "What is the maximum weight limit for an FRC robot?",
+      "id": "factual-simple-example",
+      "query": "What is the main purpose of this documentation?",
       "category": "factual-recall",
       "difficulty": "easy",
-      "tags": ["factual", "rules", "simple"],
+      "tags": ["factual", "simple", "example"],
       "groundTruth": {
-        "expectedKeywords": ["weight", "limit", "pounds", "lb", "125", "120", "withholding"],
-        "referenceAnswer": "The standard FRC robot weight limit is 125 pounds, with some allowance for withholding parts."
+        "expectedKeywords": ["purpose", "documentation", "guide", "reference"],
+        "referenceAnswer": "Replace this with the expected answer from your corpus."
       }
     },
     {
-      "id": "factual-specific",
-      "query": "What are the dimensions of the FRC field?",
-      "category": "factual-recall",
-      "difficulty": "easy",
-      "tags": ["factual", "field", "dimensions"],
-      "groundTruth": {
-        "expectedKeywords": ["field", "feet", "ft", "54", "27", "dimensions", "carpet"],
-        "referenceAnswer": "The FRC field is approximately 54 feet by 27 feet."
-      }
-    },
-    {
-      "id": "multi-hop-reasoning",
-      "query": "If a team wants to build a fast robot with good pushing power, what tradeoffs should they consider in their drivetrain design?",
+      "id": "multi-hop-example",
+      "query": "How do the concepts in section A relate to the examples in section B?",
       "category": "reasoning",
       "difficulty": "hard",
-      "tags": ["reasoning", "tradeoffs", "multi-hop"],
+      "tags": ["reasoning", "multi-hop", "example"],
       "groundTruth": {
-        "expectedKeywords": ["speed", "torque", "gear", "ratio", "motor", "tradeoff", "pushing", "traction", "wheel", "weight"],
-        "referenceAnswer": "Teams must balance gear ratios between speed and torque - higher speed reduces pushing power. Wheel choice affects traction, and weight distribution impacts stability."
+        "expectedKeywords": ["section", "concept", "example", "relationship"],
+        "referenceAnswer": "Replace with expected reasoning that requires combining information from multiple sources."
       }
     },
     {
-      "id": "comparison-query",
-      "query": "Compare tank drive and swerve drive systems. What are the advantages and disadvantages of each?",
+      "id": "comparison-example",
+      "query": "Compare approach A and approach B. What are the tradeoffs?",
       "category": "comparison",
       "difficulty": "medium",
-      "tags": ["comparison", "drivetrain"],
+      "tags": ["comparison", "tradeoffs", "example"],
       "groundTruth": {
-        "expectedKeywords": ["tank", "swerve", "advantage", "disadvantage", "simple", "complex", "maneuverability", "cost", "maintenance"],
-        "referenceAnswer": "Tank drive is simpler and cheaper but less maneuverable. Swerve offers omnidirectional movement but is more complex and expensive to build and maintain."
+        "expectedKeywords": ["approach", "compare", "tradeoff", "advantage", "disadvantage"],
+        "referenceAnswer": "Replace with a comparison answer relevant to your domain."
       }
     },
     {
-      "id": "negative-unanswerable",
-      "query": "What are the specific rules for the 2030 FRC game?",
-      "category": "negative",
-      "difficulty": "easy",
-      "tags": ["negative", "unanswerable", "future"],
+      "id": "negative-example",
+      "query": "What information does this document NOT contain?",
+      "category": "negative-query",
+      "difficulty": "medium",
+      "tags": ["negative", "boundary", "example"],
       "groundTruth": {
         "expectedKeywords": [],
-        "excludedKeywords": ["2030 game", "2030 rules"],
-        "referenceAnswer": "This information is not available as the 2030 FRC game has not been announced yet."
-      }
-    },
-    {
-      "id": "context-dependent",
-      "query": "What should I check if my robot is randomly brownout during matches?",
-      "category": "troubleshooting",
-      "difficulty": "medium",
-      "tags": ["context", "troubleshooting", "electrical"],
-      "groundTruth": {
-        "expectedKeywords": ["brownout", "battery", "voltage", "current", "wire", "connection", "breaker", "motor", "load"],
-        "referenceAnswer": "Check battery health and charge level, verify all electrical connections are secure, ensure breakers are properly rated, and review motor load during high-current operations."
-      }
-    },
-    {
-      "id": "procedural-query",
-      "query": "Walk me through the steps to properly wire a motor controller on an FRC robot.",
-      "category": "procedural",
-      "difficulty": "medium",
-      "tags": ["procedural", "wiring", "motors"],
-      "groundTruth": {
-        "expectedKeywords": ["wire", "motor", "controller", "pdp", "breaker", "can", "power", "ground", "gauge", "connector"],
-        "referenceAnswer": "1. Connect power wires from PDH/PDP to motor controller. 2. Connect motor controller to motor. 3. Wire CAN bus or PWM for communication. 4. Configure in software."
-      }
-    },
-    {
-      "id": "definition-query",
-      "query": "What is gracious professionalism in FRC?",
-      "category": "definition",
-      "difficulty": "easy",
-      "tags": ["definition", "culture", "core-values"],
-      "groundTruth": {
-        "expectedKeywords": ["gracious", "professionalism", "respect", "competition", "cooperation", "teams", "FIRST"],
-        "referenceAnswer": "Gracious Professionalism is a FIRST core value emphasizing high-quality work, competition, and cooperation. It means being kind and respectful while fiercely competing."
-      }
-    },
-    {
-      "id": "quantitative-query",
-      "query": "What is the typical free speed of a NEO motor?",
-      "category": "quantitative",
-      "difficulty": "easy",
-      "tags": ["quantitative", "motor", "specs"],
-      "groundTruth": {
-        "expectedKeywords": ["NEO", "speed", "rpm", "5676", "free", "motor"],
-        "referenceAnswer": "The NEO motor has a free speed of approximately 5676 RPM."
-      }
-    },
-    {
-      "id": "synthesis-query",
-      "query": "Design an intake system that can handle both ground pickup and human player station handoffs.",
-      "category": "synthesis",
-      "difficulty": "hard",
-      "tags": ["synthesis", "design", "multi-function"],
-      "groundTruth": {
-        "expectedKeywords": ["intake", "ground", "handoff", "roller", "wheel", "height", "sensor", "motor", "speed", "mechanism"],
-        "referenceAnswer": "Use compliant wheels or rollers with adjustable speed. Position the intake at a height accessible from the ground and station. Include sensors for game piece detection."
-      }
-    },
-    {
-      "id": "temporal-query",
-      "query": "How has autonomous programming in FRC evolved over the past 5 years?",
-      "category": "temporal",
-      "difficulty": "hard",
-      "tags": ["temporal", "history", "evolution"],
-      "groundTruth": {
-        "expectedKeywords": ["autonomous", "path", "vision", "apriltag", "trajectory", "odometry", "programming", "evolution"],
-        "referenceAnswer": "FRC autonomous has evolved from simple timed movements to sophisticated path planning with vision-based localization using AprilTags and advanced trajectory following."
-      }
-    },
-    {
-      "id": "edge-case",
-      "query": "What happens if a robot exceeds the maximum height limit during a match?",
-      "category": "edge-case",
-      "difficulty": "medium",
-      "tags": ["rules", "edge-case", "penalties"],
-      "groundTruth": {
-        "expectedKeywords": ["height", "limit", "penalty", "foul", "tech", "disable", "inspection"],
-        "referenceAnswer": "Exceeding height limits during a match can result in penalties, including tech fouls. Repeated violations may lead to disabling the robot."
+        "referenceAnswer": "The retrieval system should recognize when a query cannot be answered from the available documents."
       }
     }
   ]
 }
-

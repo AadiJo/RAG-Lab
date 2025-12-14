@@ -122,7 +122,7 @@ function computeHeadline(result: EvaluationResult): Record<string, unknown> | nu
 // Check system readiness
 evaluationRoutes.get('/readiness', async (c) => {
   // Prefer checking local text mode if an active text DB exists.
-  // This avoids noisy external FRC-RAG health checks during UI polling.
+  // This avoids noisy external health checks during UI polling.
   let evaluator: Evaluator;
   try {
     const TEXTDBS_DIR = process.env.TEXTDBS_DIR || './data/text_dbs';

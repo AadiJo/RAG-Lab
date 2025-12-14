@@ -3,13 +3,11 @@
 Text-only query runner for a persisted Chroma database.
 
 Design goals:
-- No dependency on the external `frc-rag` repo.
-- Match `frc-rag` text retrieval behavior as closely as practical:
-  - HuggingFaceEmbeddings("BAAI/bge-large-en-v1.5")
-  - Chroma similarity_search(query, k)
-  - optional game-piece query enhancement
-  - optional lightweight post-processing filter
-- Exclude image-only chunks from the returned *text* contexts by default.
+- Domain-agnostic text retrieval
+- HuggingFaceEmbeddings (configurable via env)
+- Chroma similarity_search with optional BM25/hybrid
+- Optional lightweight post-processing filter
+- Pluggable query enhancement via modules
 
 Output: JSON on stdout.
 """
@@ -24,7 +22,6 @@ from typing import Any, Dict, List, Optional, Tuple
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from text_rag.game_piece_mapper import GamePieceMapper
 from text_rag.post_processor import SimplePostProcessor
 
 try:
@@ -65,13 +62,15 @@ def _load_db(chroma_path: str) -> Chroma:
 
 
 def _enhance_query(query: str, enable: bool) -> Tuple[str, List[str]]:
-    if not enable:
-        return query, []
-    mapper = GamePieceMapper()
-    enhanced, matched = mapper.enhance_query(query)
-    if not isinstance(enhanced, str) or not enhanced.strip():
-        return query, matched
-    return enhanced, matched
+    """
+    Query enhancement stub.
+    
+    Domain-specific query enhancement should be implemented via modules.
+    This function is kept for API compatibility but does nothing by default.
+    """
+    # Query enhancement is now handled by modules
+    # This stub returns the query unchanged for backwards compatibility
+    return query, []
 
 
 def _exclude_image_docs(results: List[Any], exclude_types: bool) -> List[Any]:
@@ -292,13 +291,9 @@ def main() -> None:
     parser.add_argument("--bm25-variant", choices=["bm25", "bm25_no_idf", "tf"], default="bm25")
     args = parser.parse_args()
 
-    # Default to env, unless explicit flags are provided
-    if args.disable_game_piece_enhancement:
-        enable_gpe = False
-    elif args.enable_game_piece_enhancement:
-        enable_gpe = True
-    else:
-        enable_gpe = _bool_env("TEXT_ENABLE_GAME_PIECE_ENHANCEMENT", True)
+    # Game piece enhancement is deprecated in favor of modules.
+    # Always disabled in core; domain-specific modules handle enhancement.
+    enable_gpe = False
 
     where = None
     if args.where_json:

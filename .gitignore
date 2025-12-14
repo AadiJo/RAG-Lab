@@ -65,15 +65,22 @@ modules/*
 # =============================================================================
 # Domain-Specific Datasets
 # =============================================================================
-# The frc-specific dataset is kept as an example.
-# Users can create their own domain-specific datasets here.
-# datasets/frc-specific/  # Uncomment to exclude
+# Domain-specific datasets can be created in subdirectories of datasets/
+# They are included by default; uncomment the line below to exclude:
+# datasets/my-domain/
 
 # =============================================================================
 # Python Virtual Environment
 # =============================================================================
 .venv-textdb/
 
-# Text DB data (generated)
-data/text_dbs/*.sqlite3
+# =============================================================================
+# Vector Databases (generated, large files)
+# =============================================================================
+# Ignore all generated database directories and files
 data/text_dbs/*/
+data/text_dbs/*.sqlite3
+
+# Keep structure files
+!data/text_dbs/.gitkeep
+!data/text_dbs/active.json.example

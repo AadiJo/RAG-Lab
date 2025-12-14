@@ -7,13 +7,17 @@
 import { Hono } from 'hono';
 import { existsSync } from 'fs';
 import { readdir, readFile, mkdir, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { dirname, isAbsolute, join, relative, resolve } from 'path';
 import { spawn } from 'bun';
 
 export const textDbRoutes = new Hono();
 
 const TEXTDBS_DIR = process.env.TEXTDBS_DIR || './data/text_dbs';
 const ACTIVE_FILE = join(TEXTDBS_DIR, 'active.json');
+const DEFAULT_PDF_INPUT_DIR = process.env.TEXTDB_PDF_INPUT_DIR || './data/pdfs';
+// If set, the UI directory picker will start here by default.
+// Note: We allow browsing *outside* this root (requested behavior for local dev).
+const DIR_BROWSE_ROOT = process.env.TEXTDB_DIR_BROWSE_ROOT || './data';
 
 type BuildStatus = 'queued' | 'running' | 'completed' | 'failed';
 
@@ -65,6 +69,22 @@ async function readJsonIfExists(path: string): Promise<Record<string, unknown> |
   } catch {
     return null;
   }
+}
+
+function projectRootAbs(): string {
+  return resolve(process.cwd());
+}
+
+function resolvePathFromCwd(relOrAbsPath: string): string {
+  if (!relOrAbsPath) return projectRootAbs();
+  return isAbsolute(relOrAbsPath) ? relOrAbsPath : resolve(projectRootAbs(), relOrAbsPath);
+}
+
+function formatPathForClient(absPath: string): string {
+  const root = projectRootAbs();
+  const rel = relative(root, absPath) || '.';
+  // If inside project → return relative for readability; else return absolute.
+  return rel.startsWith('..') ? absPath : rel;
 }
 
 function appendLog(job: TextDbBuildJob, chunk: string) {
@@ -120,12 +140,57 @@ textDbRoutes.post('/active', async (c) => {
   return c.json({ ok: true, activeDbPath: path });
 });
 
+// Browse directories under DIR_BROWSE_ROOT (for UI folder picker)
+textDbRoutes.get('/browse', async (c) => {
+  const raw = String(c.req.query('path') || '').trim();
+  const requested = raw || DIR_BROWSE_ROOT;
+
+  const targetAbs = resolvePathFromCwd(requested);
+
+  if (!existsSync(targetAbs)) {
+    return c.json({ error: `path not found: ${requested}` }, 404);
+  }
+
+  const entries = await readdir(targetAbs, { withFileTypes: true });
+  const directories = entries
+    .filter((e) => e.isDirectory())
+    .map((e) => ({
+      name: e.name,
+      path: formatPathForClient(join(targetAbs, e.name)),
+      type: 'directory' as const,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const files = entries
+    .filter((e) => e.isFile())
+    .map((e) => ({
+      name: e.name,
+      path: formatPathForClient(join(targetAbs, e.name)),
+      type: 'file' as const,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const parentAbs = dirname(targetAbs);
+  const parent =
+    parentAbs === targetAbs ? null : formatPathForClient(parentAbs);
+
+  return c.json({
+    root: formatPathForClient(resolvePathFromCwd(DIR_BROWSE_ROOT)),
+    path: formatPathForClient(targetAbs),
+    parent,
+    directories,
+    files,
+    defaultPdfInputDir: DEFAULT_PDF_INPUT_DIR,
+  });
+});
+
 // Start a build
 textDbRoutes.post('/build', async (c) => {
   const body = await c.req.json().catch(() => ({}));
 
   const name = String((body as any).name || `db_${Date.now().toString(36)}`);
-  const inputDir = String((body as any).inputDir || '/home/aadi/L-Projects/frc-rag/backend/data');
+  const rawInputDir = String((body as any).inputDir || '').trim();
+  const inputDir = rawInputDir || DEFAULT_PDF_INPUT_DIR;
   const representation = String((body as any).representation || 'structured');
   const chunkSize = Number((body as any).chunkSize ?? 800);
   const chunkOverlap = Number((body as any).chunkOverlap ?? 200);
@@ -133,6 +198,19 @@ textDbRoutes.post('/build', async (c) => {
   const embeddingDevice = String((body as any).embeddingDevice || process.env.TEXT_EMBEDDING_DEVICE || 'cpu');
   const includeFilenameBanner = Boolean((body as any).includeFilenameBanner ?? true);
   const setActive = Boolean((body as any).setActive ?? true);
+  
+  // Document processor modules configuration
+  const enabledModules = (body as any).enabledModules as string[] | undefined;
+  const moduleConfigs = (body as any).moduleConfigs as Record<string, Record<string, unknown>> | undefined;
+
+  if (!existsSync(inputDir)) {
+    return c.json(
+      {
+        error: `Input directory not found: ${inputDir}. (Default is ${DEFAULT_PDF_INPUT_DIR})`,
+      },
+      400
+    );
+  }
 
   await ensureTextDbsDir();
   const outputDir = join(TEXTDBS_DIR, name);
@@ -153,10 +231,16 @@ textDbRoutes.post('/build', async (c) => {
       embeddingModel,
       embeddingDevice,
       includeFilenameBanner,
+      enabledModules,
     },
     logs: '',
   };
   jobs.set(id, job);
+
+  // Build the modules JSON argument if modules are enabled
+  const modulesJsonArg = enabledModules && enabledModules.length > 0
+    ? JSON.stringify({ enabled: enabledModules, configs: moduleConfigs || {} })
+    : '';
 
   // Fire-and-forget build
   (async () => {
@@ -184,11 +268,12 @@ textDbRoutes.post('/build', async (c) => {
       '--embedding-device',
       embeddingDevice,
       ...(includeFilenameBanner ? ['--include-filename-banner'] : []),
+      ...(modulesJsonArg ? ['--modules-json', modulesJsonArg] : []),
     ], {
       cwd: process.cwd(),
       env: {
         ...process.env,
-        PYTHONPATH: `${process.cwd()}/python`,
+        PYTHONPATH: `${process.cwd()}/python:${process.cwd()}/modules`,
       },
     });
 

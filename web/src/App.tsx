@@ -141,6 +141,8 @@ function App() {
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-900/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-900/10 rounded-full blur-[120px]" />
+        {/* Multi-scale grain to reduce gradient banding in Chrome */}
+        <div className="absolute inset-0 bg-noise-dither opacity-[0.07] mix-blend-overlay" />
       </div>
 
       {/* Sidebar */}

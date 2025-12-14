@@ -13,6 +13,7 @@ Module Types:
     - QueryPreprocessor: Transforms queries before retrieval
     - RelevanceFilter: Filters or reranks documents after retrieval  
     - SearchType: Implements different retrieval strategies
+    - DocumentProcessor: Transforms documents during database ingestion
 
 Usage:
     ```python
@@ -64,6 +65,9 @@ class ModuleType(str, Enum):
     
     SEARCH_TYPE = "search_type"
     """Search types implement different retrieval strategies."""
+    
+    DOCUMENT_PROCESSOR = "document_processor"
+    """Document processors transform documents during database ingestion."""
 
 
 @dataclass
@@ -105,7 +109,7 @@ class ModuleManifest:
     This is serialized to JSON and sent to the frontend for module discovery.
     
     Attributes:
-        id: Unique module identifier (e.g., "frc-game-piece-mapper")
+        id: Unique module identifier (e.g., "my-query-expander")
         name: Human-readable name
         description: Detailed description of what the module does
         type: The module type (preprocessor, filter, search_type)
@@ -431,7 +435,110 @@ class SearchType(BaseModule):
         pass
 
 
+class DocumentProcessor(BaseModule):
+    """
+    Base class for document processors.
+    
+    Document processors transform documents during the database ingestion phase.
+    They run when building a vector database and can:
+    
+    - Extract custom metadata from filenames or content
+    - Transform document text before chunking
+    - Add domain-specific annotations
+    - Filter out irrelevant documents
+    
+    Processors can be chained - each processor receives the output of the previous one.
+    
+    Example:
+        ```python
+        class MetadataExtractor(DocumentProcessor):
+            MODULE_ID = "metadata-extractor"
+            MODULE_NAME = "Metadata Extractor"
+            
+            def process_document(
+                self,
+                content: str,
+                metadata: dict,
+                context: dict
+            ) -> tuple[str, dict, dict]:
+                # Extract custom metadata from filename
+                filename = metadata.get("doc_name", "")
+                extracted = self._parse_filename(filename)
+                metadata.update(extracted)
+                return content, metadata, context
+        ```
+    
+    Note: Document processors run at ingestion time, not query time.
+    Enable them before building your database.
+    """
+    
+    @classmethod
+    def get_module_type(cls) -> ModuleType:
+        return ModuleType.DOCUMENT_PROCESSOR
+    
+    @abstractmethod
+    def process_document(
+        self,
+        content: str,
+        metadata: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> Tuple[str, Dict[str, Any], Dict[str, Any]]:
+        """
+        Process a document during ingestion.
+        
+        Args:
+            content: The document text content
+            metadata: Document metadata dict, typically containing:
+                - "source": Original file path
+                - "doc_name": Filename
+                - "doc_id": Document identifier
+                - "page": Page number (for PDFs)
+                - "type": Document type
+            context: Contextual information that can be used/modified:
+                - "config": Build configuration
+                - Custom keys added by prior processors
+        
+        Returns:
+            Tuple of (processed_content, updated_metadata, updated_context)
+            - processed_content: The (possibly modified) document text
+            - updated_metadata: The metadata dict with any additions
+            - updated_context: The context dict with any additions
+            
+        Note:
+            Return None for content to skip/filter out this document.
+        """
+        pass
+    
+    def process_documents(
+        self,
+        documents: List[Tuple[str, Dict[str, Any]]],
+        context: Dict[str, Any],
+    ) -> Tuple[List[Tuple[str, Dict[str, Any]]], Dict[str, Any]]:
+        """
+        Process multiple documents. Override for batch operations.
+        
+        By default, this calls process_document for each document.
+        Override this method if you need to do batch processing
+        (e.g., for deduplication across documents).
+        
+        Args:
+            documents: List of (content, metadata) tuples
+            context: Contextual information
+        
+        Returns:
+            Tuple of (processed_documents, updated_context)
+        """
+        processed = []
+        for content, metadata in documents:
+            result = self.process_document(content, metadata, context)
+            if result[0] is not None:  # Skip if content is None
+                processed.append((result[0], result[1]))
+                context = result[2]
+        return processed, context
+
+
 # Type aliases for convenience
 PreprocessorType = Type[QueryPreprocessor]
 FilterType = Type[RelevanceFilter]
 SearchTypeType = Type[SearchType]
+DocumentProcessorType = Type[DocumentProcessor]

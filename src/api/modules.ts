@@ -14,6 +14,7 @@ import {
   getPreprocessors, 
   getFilters, 
   getSearchTypes,
+  getDocumentProcessors,
   clearModuleCache,
 } from '../modules/manager';
 
@@ -91,6 +92,24 @@ moduleRoutes.get('/search-types', async (c) => {
     return c.json({
       error: error instanceof Error ? error.message : 'Failed to get search types',
       searchTypes: [],
+    }, 500);
+  }
+});
+
+/**
+ * GET /api/modules/document-processors
+ * 
+ * List available document processor modules.
+ * These are used during database building to extract metadata or transform documents.
+ */
+moduleRoutes.get('/document-processors', async (c) => {
+  try {
+    const documentProcessors = await getDocumentProcessors();
+    return c.json({ documentProcessors });
+  } catch (error) {
+    return c.json({
+      error: error instanceof Error ? error.message : 'Failed to get document processors',
+      documentProcessors: [],
     }, 500);
   }
 });

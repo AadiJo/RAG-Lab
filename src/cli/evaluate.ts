@@ -2,7 +2,7 @@
  * CLI runner for dataset evaluations (local, no web UI required).
  *
  * Usage:
- *   bun run src/cli/evaluate.ts --dataset frc-eval-dataset --mode text --k 5,10 --filter
+ *   bun run src/cli/evaluate.ts --dataset my-dataset --mode text --k 5,10 --filter
  */
 
 import { Evaluator } from '@/core/evaluator';

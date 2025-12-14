@@ -7,14 +7,20 @@ import {
   Loader2,
   HardDrive,
   Settings,
-  Info
+  Info,
+  FolderOpen,
+  ChevronUp,
+  FileText
 } from 'lucide-react';
 import { 
   listTextDbs,
   setActiveTextDb,
   startTextDbBuild,
   getTextDbBuild,
-  type TextDbEntry
+  getDocumentProcessors,
+  browseTextDbDirectories,
+  type TextDbEntry,
+  type ModuleManifest
 } from '../lib/api';
 
 export default function TextDbsView() {
@@ -23,9 +29,22 @@ export default function TextDbsView() {
   const [buildJobId, setBuildJobId] = useState<string | null>(null);
   const [buildStatus, setBuildStatus] = useState<any>(null);
   const [showBuildForm, setShowBuildForm] = useState(false);
+  const [documentProcessors, setDocumentProcessors] = useState<ModuleManifest[]>([]);
+  const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set());
+  const [showDirPicker, setShowDirPicker] = useState(false);
+  const [dirPicker, setDirPicker] = useState<{
+    root: string;
+    path: string;
+    parent: string | null;
+    directories: Array<{ name: string; path: string; type?: 'directory' }>;
+    files?: Array<{ name: string; path: string; type?: 'file' }>;
+    defaultPdfInputDir: string;
+  } | null>(null);
+  const [dirPickerLoading, setDirPickerLoading] = useState(false);
+  const [dirPickerError, setDirPickerError] = useState<string | null>(null);
   const [buildForm, setBuildForm] = useState({
     name: `textdb_${new Date().toISOString().slice(0, 10)}_${Date.now().toString(36).slice(-6)}`,
-    inputDir: '/home/aadi/L-Projects/frc-rag/backend/data',
+    inputDir: 'data/pdfs',
     representation: 'raw' as 'raw' | 'structured',
     chunkSize: 800,
     chunkOverlap: 200,
@@ -37,9 +56,44 @@ export default function TextDbsView() {
 
   const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const loadDirPicker = async (path?: string) => {
+    setDirPickerLoading(true);
+    setDirPickerError(null);
+    try {
+      const res = await browseTextDbDirectories(path);
+      setDirPicker(res);
+    } catch (e: any) {
+      setDirPickerError(e?.message || 'Failed to browse directories');
+    } finally {
+      setDirPickerLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadDbs();
+    loadDocumentProcessors();
   }, []);
+
+  const loadDocumentProcessors = async () => {
+    try {
+      const res = await getDocumentProcessors();
+      setDocumentProcessors(res.documentProcessors || []);
+    } catch (err) {
+      console.error('Failed to load document processors:', err);
+    }
+  };
+
+  const toggleModule = (moduleId: string) => {
+    setEnabledModules(prev => {
+      const next = new Set(prev);
+      if (next.has(moduleId)) {
+        next.delete(moduleId);
+      } else {
+        next.add(moduleId);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!buildJobId) return;
@@ -87,7 +141,11 @@ export default function TextDbsView() {
 
   const handleStartBuild = async () => {
     try {
-      const res = await startTextDbBuild(buildForm);
+      const res = await startTextDbBuild({
+        ...buildForm,
+        enabledModules: Array.from(enabledModules),
+        moduleConfigs: {}, // Could be extended to support per-module config
+      });
       setBuildJobId(res.id);
       setBuildStatus({ status: 'running', progress: { current: 0, total: 0 } });
       setShowBuildForm(false);
@@ -154,12 +212,29 @@ export default function TextDbsView() {
 
             <label className="space-y-2">
               <span className="text-sm text-zinc-300">Input Directory (PDFs)</span>
-              <input
-                type="text"
-                value={buildForm.inputDir}
-                onChange={(e) => setBuildForm(prev => ({ ...prev, inputDir: e.target.value }))}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={buildForm.inputDir}
+                  onChange={(e) => setBuildForm(prev => ({ ...prev, inputDir: e.target.value }))}
+                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setShowDirPicker(true);
+                    await loadDirPicker(buildForm.inputDir || '');
+                  }}
+                  className="px-3 py-2 rounded-lg bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 text-zinc-200 transition-colors flex items-center gap-2"
+                  title="Browse folders on the server filesystem"
+                >
+                  <FolderOpen size={16} />
+                  Browse
+                </button>
+              </div>
+              <p className="text-xs text-zinc-500">
+                Default: <span className="font-mono">data/pdfs</span> (relative to project root)
+              </p>
             </label>
 
             <label className="space-y-2">
@@ -216,16 +291,178 @@ export default function TextDbsView() {
               </select>
             </label>
 
-            <label className="space-y-2 flex items-center justify-between p-4 rounded-lg bg-zinc-900/30 border border-zinc-800/50">
-              <span className="text-sm text-zinc-300">Set Active After Build</span>
-              <input
-                type="checkbox"
-                checked={buildForm.setActive}
-                onChange={(e) => setBuildForm(prev => ({ ...prev, setActive: e.target.checked }))}
-                className="w-5 h-5 rounded border-zinc-700 bg-zinc-900 text-indigo-500"
-              />
+            <label className="space-y-2">
+              <span className="text-sm text-zinc-300">After Build</span>
+              <div className="flex items-center gap-3 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 hover:border-zinc-700 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={buildForm.setActive}
+                  onChange={(e) => setBuildForm(prev => ({ ...prev, setActive: e.target.checked }))}
+                  className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-indigo-500 focus:ring-indigo-500/30"
+                />
+                <span className="text-sm text-zinc-300 select-none">Set Active After Build</span>
+              </div>
             </label>
           </div>
+
+          {/* Directory Picker Modal */}
+          {showDirPicker && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="glass-panel rounded-2xl w-full max-w-2xl border border-zinc-800 overflow-hidden">
+                <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-white">Select Input Directory</div>
+                    <div className="text-xs text-zinc-500 truncate">
+                      Browsing: <span className="font-mono">{dirPicker?.path || '...'}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDirPicker(false)}
+                    className="px-3 py-1.5 text-xs rounded-lg bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 text-zinc-200 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={!dirPicker?.parent || dirPickerLoading}
+                      onClick={async () => {
+                        if (dirPicker?.parent) await loadDirPicker(dirPicker.parent);
+                      }}
+                      className="px-3 py-2 rounded-lg bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-200 transition-colors flex items-center gap-2"
+                      title="Go up one folder"
+                    >
+                      <ChevronUp size={16} />
+                      Up
+                    </button>
+                    <div className="text-xs text-zinc-500">
+                      Start: <span className="font-mono">{dirPicker?.root || '.'}</span>
+                    </div>
+                  </div>
+
+                  {dirPickerError && (
+                    <div className="p-3 rounded-lg border border-red-500/20 bg-red-500/10 text-sm text-red-300">
+                      {dirPickerError}
+                    </div>
+                  )}
+
+                  <div className="max-h-72 overflow-auto rounded-lg border border-zinc-800 bg-black/20">
+                    {dirPickerLoading && (
+                      <div className="p-4 text-sm text-zinc-400 flex items-center gap-2">
+                        <Loader2 size={16} className="animate-spin text-indigo-400" />
+                        Loading folders…
+                      </div>
+                    )}
+                    {!dirPickerLoading &&
+                      (dirPicker?.directories?.length || 0) === 0 &&
+                      (dirPicker?.files?.length || 0) === 0 && (
+                        <div className="p-4 text-sm text-zinc-500">Empty directory.</div>
+                      )}
+                    {!dirPickerLoading && (
+                      <div className="divide-y divide-zinc-800">
+                        {dirPicker?.directories?.map((d) => (
+                          <button
+                            key={d.path}
+                            type="button"
+                            onClick={async () => {
+                              await loadDirPicker(d.path);
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-zinc-900/40 transition-colors flex items-center gap-2"
+                          >
+                            <FolderOpen size={16} className="text-zinc-400" />
+                            <span className="text-sm text-zinc-200">{d.name}</span>
+                            <span className="ml-auto text-xs font-mono text-zinc-500 truncate max-w-[50%]">
+                              {d.path}
+                            </span>
+                          </button>
+                        ))}
+                        {dirPicker?.files?.map((f) => (
+                          <div
+                            key={f.path}
+                            className="px-4 py-3 flex items-center gap-2 opacity-80"
+                          >
+                            <FileText size={16} className="text-zinc-500" />
+                            <span className="text-sm text-zinc-400">{f.name}</span>
+                            <span className="ml-auto text-xs font-mono text-zinc-600 truncate max-w-[50%]">
+                              {f.path}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 pt-2">
+                    <div className="text-xs text-zinc-500">
+                      Selecting sets the input directory relative to the project root.
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!dirPicker?.path || dirPickerLoading}
+                      onClick={() => {
+                        if (dirPicker?.path) {
+                          setBuildForm((prev) => ({ ...prev, inputDir: dirPicker.path }));
+                        }
+                        setShowDirPicker(false);
+                      }}
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-semibold shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Use This Folder
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Document Processors Section */}
+          {documentProcessors.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <h4 className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                <Settings size={16} />
+                Document Processors
+              </h4>
+              <p className="text-xs text-zinc-500">
+                Enable modules to extract metadata or transform documents during ingestion.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {documentProcessors.map((mod) => (
+                  <label
+                    key={mod.id}
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      enabledModules.has(mod.id)
+                        ? 'bg-indigo-500/10 border-indigo-500/30'
+                        : 'bg-zinc-900/30 border-zinc-800 hover:border-zinc-700'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={enabledModules.has(mod.id)}
+                      onChange={() => toggleModule(mod.id)}
+                      className="mt-0.5 w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-indigo-500 focus:ring-indigo-500/30"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-zinc-200">{mod.name}</div>
+                      <div className="text-xs text-zinc-500 line-clamp-2">{mod.description}</div>
+                      {mod.tags && mod.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {mod.tags.slice(0, 3).map(tag => (
+                            <span key={tag} className="px-1.5 py-0.5 text-xs rounded bg-zinc-800 text-zinc-400">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           <button
             onClick={handleStartBuild}
